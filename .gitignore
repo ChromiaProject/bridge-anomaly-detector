@@ -1,0 +1,26 @@
+**/.DS_Store
+.vscode
+
+### Node ###
+# Logs
+logs
+*.log
+*.log.lck
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+### Java & idea
+.idea
+.vscode
+.project
+.settings/
+.classpath
+*.iml
+target
+*/*.pid
+*.pid
+*.jar
+.flattened-pom.xml
