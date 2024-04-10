@@ -9,5 +9,7 @@ data class AppConfig(
         val bcRid: String,
         val bridgeChainRefreshIntervalSeconds: Long = TimeUnit.MINUTES.toSeconds(30), // Change to MS for tests?
 
-        val timeoutConfig: TimeoutConfig
+        val timeoutConfig: TimeoutConfig,
+
+        val restApiConfig: RestApiConfig = RestApiConfig()
 )

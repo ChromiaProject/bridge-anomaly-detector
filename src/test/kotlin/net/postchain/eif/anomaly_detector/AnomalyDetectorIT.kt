@@ -7,6 +7,7 @@ import net.postchain.base.BaseBlockWitness
 import net.postchain.base.configuration.KEY_SIGNERS
 import net.postchain.base.snapshot.SimpleDigestSystem
 import net.postchain.client.config.PostchainClientConfig
+import net.postchain.client.core.PostchainClient
 import net.postchain.client.impl.PostchainClientProviderImpl
 import net.postchain.client.request.EndpointPool
 import net.postchain.common.BlockchainRid
@@ -14,7 +15,6 @@ import net.postchain.common.data.Hash
 import net.postchain.common.data.KECCAK256
 import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
-import net.postchain.common.tx.TransactionStatus
 import net.postchain.concurrent.util.get
 import net.postchain.core.BlockRid
 import net.postchain.core.block.BlockQueries
@@ -23,7 +23,6 @@ import net.postchain.crypto.Signature
 import net.postchain.crypto.devtools.KeyPairHelper
 import net.postchain.devtools.PostchainTestNode
 import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
-import net.postchain.economy.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.eif.EifSignature
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
@@ -49,6 +48,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeAll
@@ -127,10 +127,12 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     private lateinit var assetId: Gtv
     private lateinit var node: PostchainTestNode
     private lateinit var blockQuery: BlockQueries
-    private var chainId = -1L
+    private var eifChainId = -1L
+    private var ecChainId = -1L
     private lateinit var eifBcRid: BlockchainRid
     private lateinit var ecBcRid: BlockchainRid
     private var currentBlockHeight = 0L
+    private lateinit var ecClient: PostchainClient
 
     @BeforeAll
     fun setupBeforeAll() {
@@ -197,46 +199,31 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
         // c1
         val chainGtvConfig = loadEifBlockchainConfig()
-        chainId = startNewBlockchain(
+        eifChainId = startNewBlockchain(
                 setOf(0), setOf(1), rawBlockchainConfiguration = GtvEncoder.encodeGtv(chainGtvConfig)
         )
-        buildBlock(chainId)
+        buildBlock(eifChainId)
         node = nodes[0]
-        eifBcRid = node.getBlockchainInstance(chainId).blockchainEngine.blockchainRid
-        logger.info { "EIF chain deployed: chainId: $chainId, blockchainRid: $eifBcRid" }
+        eifBcRid = node.getBlockchainInstance(eifChainId).blockchainEngine.blockchainRid
+        logger.info { "EIF chain deployed: chainId: $eifChainId, blockchainRid: $eifBcRid" }
 
         // c2 - Mocked economy chain
         val ecChainGtvConfig = loadMockedEconomyBlockchainConfig(eifBcRid, bridge.contractAddress)
-        val chainId2 = startNewBlockchain(
+        ecChainId = startNewBlockchain(
                 setOf(0), setOf(1), rawBlockchainConfiguration = GtvEncoder.encodeGtv(ecChainGtvConfig)
         )
-        buildBlock(chainId2)
-        ecBcRid = node.getBlockchainInstance(chainId2).blockchainEngine.blockchainRid
-        logger.info { "Mocked EC deployed: chainId: $chainId2, blockchainRid: $ecBcRid" }
+        buildBlock(ecChainId)
+        ecBcRid = node.getBlockchainInstance(ecChainId).blockchainEngine.blockchainRid
+        logger.info { "Mocked EC deployed: chainId: $ecChainId, blockchainRid: $ecBcRid" }
 
-        val ecClient = PostchainClientProviderImpl().createClient(
+        ecClient = PostchainClientProviderImpl().createClient(
                 PostchainClientConfig(
                         ecBcRid,
                         EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
                         listOf()
                 ))
-        val postAwaitConfirmation = ecClient.transactionBuilder()
-                .addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress))
-                .post()
-        logger.info { "${postAwaitConfirmation.status} ${postAwaitConfirmation.httpStatusCode} ${postAwaitConfirmation.rejectReason}"}
-//                .let { "Anomaly detection added for bcrid ${eifBcRid.toHex()} ${it.status}" }
 
-        while (true) {
-            buildBlock(chainId2)
-            val checkTxStatus = ecClient.checkTxStatus(postAwaitConfirmation.txRid)
-            logger.info { "S: $checkTxStatus" }
-
-            if (checkTxStatus.status == TransactionStatus.CONFIRMED) {
-                break
-            }
-
-            Thread.sleep(1_000)
-        }
+        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
     }
 
     @Test
@@ -498,7 +485,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
     @Test
     @Order(6)
-    fun `test something`() {
+    fun `detector - verify correct withdrawrequest`() {
 
         val appConfig = AppConfig(
 
@@ -537,14 +524,15 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                     logger.info { "Waiting for anomaly detector..." }
 
                     assertThat(anomalyDetector.logsProcessed).isEqualTo(1L)
-                    assertThat(anomalyDetector.anomaliesDetected).isEqualTo(1L)
-                    assertTrue(anomalyDetector.brigedPaused)
+                    assertThat(anomalyDetector.logsVerified).isEqualTo(1L)
+//                    assertThat(anomalyDetector.anomaliesDetected).isEqualTo(1L)
+                    assertFalse(anomalyDetector.brigedPaused)
                 }
 
-        Awaitility.await().atMost(Duration.FOREVER).pollDelay(5, TimeUnit.SECONDS).untilAsserted {
-            logger.info { "Keeping alive...." }
-            fail("keep alive")
-        }
+//        Awaitility.await().atMost(Duration.FOREVER).pollDelay(5, TimeUnit.SECONDS).untilAsserted {
+//            logger.info { "Keeping alive...." }
+//            fail("keep alive")
+//        }
     }
 
     fun sealBlock() {
@@ -578,7 +566,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         // (last + 1) will not work because (last + 1) config already loaded by afterCommit handler
         val newConfigHeight = lastBlockHeight + 2
         val newRawConfig = GtvEncoder.encodeGtv(gtv(newConfig))
-        addDappBlockchainConfiguration(chainId, newRawConfig, newConfigHeight)
+        addDappBlockchainConfiguration(eifChainId, newRawConfig, newConfigHeight)
 
         // building at least two blocks to build a block with new signers
         sealBlock()

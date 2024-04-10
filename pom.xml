@@ -332,19 +332,19 @@
                             <target>${project.build.directory}/generated-sources/rell-client/economy</target>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>compile-d1</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>rell-compile</goal>
-                        </goals>
-                        <configuration>
-                            <rootFolder>${project.basedir}</rootFolder>
-                            <configFile>src/test/resources/directory1.yml</configFile>
-                            <source>${directory.source}</source>
-                            <target>target/test-classes/directory1deployment</target>
-                        </configuration>
-                    </execution>
+<!--                    <execution>-->
+<!--                        <id>compile-d1</id>-->
+<!--                        <phase>generate-test-resources</phase>-->
+<!--                        <goals>-->
+<!--                            <goal>rell-compile</goal>-->
+<!--                        </goals>-->
+<!--                        <configuration>-->
+<!--                            <rootFolder>${project.basedir}</rootFolder>-->
+<!--                            <configFile>src/test/resources/directory1.yml</configFile>-->
+<!--                            <source>${directory.source}</source>-->
+<!--                            <target>target/test-classes/directory1deployment</target>-->
+<!--                        </configuration>-->
+<!--                    </execution>-->
                 </executions>
             </plugin>
             <plugin>

@@ -1,10 +1,15 @@
 package net.postchain.eif.anomaly_detector
 
+import assertk.assertThat
+import assertk.assertions.isEqualTo
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
+import net.postchain.client.core.PostchainClient
+import net.postchain.client.transaction.TransactionBuilder
 import net.postchain.common.BlockchainRid
 import net.postchain.common.data.Hash
 import net.postchain.common.hexStringToByteArray
+import net.postchain.common.tx.TransactionStatus
 import net.postchain.crypto.KeyPair
 import net.postchain.crypto.Secp256K1CryptoSystem
 import net.postchain.crypto.SigMaker
@@ -16,6 +21,8 @@ import net.postchain.gtv.GtvFactory.gtv
 import net.postchain.gtv.GtvInteger
 import net.postchain.gtv.GtvNull
 import net.postchain.gtx.GtxBuilder
+import org.awaitility.Awaitility.await
+import org.awaitility.Duration
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.testcontainers.containers.DockerComposeContainer
@@ -253,5 +260,21 @@ abstract class EifBaseIntegrationTest(evmType: EvmType, private val prependUrls:
         val evmHost = evmContainer.getServiceHost("geth", 8545)
         val evmPort = evmContainer.getServicePort("geth", 8545)
         return "http://$evmHost:$evmPort"
+    }
+
+    fun awaitTransaction(client: PostchainClient, chainId: Long, ops: (TransactionBuilder) -> Unit) {
+
+        val transactionBuilder = client.transactionBuilder()
+        ops(transactionBuilder)
+        val tx = transactionBuilder.post()
+
+        await().atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    buildBlock(chainId)
+
+                    val checkTxStatus = client.checkTxStatus(tx.txRid)
+                    assertThat(checkTxStatus.status).isEqualTo(TransactionStatus.CONFIRMED)
+                }
+
     }
 }

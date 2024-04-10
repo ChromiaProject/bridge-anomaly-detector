@@ -1,0 +1,107 @@
+// Copyright (c) 2020 ChromaWay AB. See README for license information.
+
+package net.postchain.eif.anomaly_detector.rest
+
+import mu.KLogging
+import org.http4k.core.Body
+import org.http4k.core.Filter
+import org.http4k.core.Method.GET
+import org.http4k.core.Method.OPTIONS
+import org.http4k.core.Method.POST
+import org.http4k.core.Request
+import org.http4k.core.RequestContexts
+import org.http4k.core.Response
+import org.http4k.core.Status
+import org.http4k.core.Status.Companion.BAD_REQUEST
+import org.http4k.core.Status.Companion.OK
+import org.http4k.core.Status.Companion.SERVICE_UNAVAILABLE
+import org.http4k.core.then
+import org.http4k.core.with
+import org.http4k.filter.AllowAll
+import org.http4k.filter.CorsPolicy
+import org.http4k.filter.OriginPolicy
+import org.http4k.filter.ServerFilters
+import org.http4k.format.Gson.auto
+import org.http4k.format.auto
+import org.http4k.lens.ContentNegotiation
+import org.http4k.routing.ResourceLoader
+import org.http4k.routing.bind
+import org.http4k.routing.routes
+import org.http4k.routing.static
+import org.http4k.server.SunHttp
+import org.http4k.server.asServer
+import java.io.Closeable
+
+val versionBody = Body.auto<Version>().toLens()
+val errorJsonBody = Body.auto<ErrorBody>().toLens()
+val errorBody = ContentNegotiation.auto(errorJsonBody)
+
+data class ErrorBody(val error: String = "")
+data class Version(val version: Int)
+
+class RestApi(
+        private val listenPort: Int,
+        val basePath: String
+) : Closeable {
+
+    companion object : KLogging() {
+        const val REST_API_VERSION = 1
+    }
+
+    private val app = routes(
+            "/" bind static(ResourceLoader.Classpath("/restapi-root")),
+
+            "/version" bind GET to ::getVersion,
+    )
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun getVersion(request: Request): Response = Response(OK).with(
+            versionBody of Version(REST_API_VERSION)
+    )
+
+    private val handler = routes(
+            basePath bind app
+    )
+
+    private val contexts = RequestContexts()
+
+    private val server = ServerFilters.InitialiseRequestContext(contexts)
+            .then(ServerFilters.Cors(
+                    CorsPolicy(OriginPolicy.AllowAll(), listOf("Content-Type", "Accept"), listOf(GET, POST, OPTIONS), credentials = false)))
+            .then(Filter { next ->
+                { request ->
+                    try {
+                        next(request)
+                    } catch (e: Exception) {
+                        onError(e, request)
+                    }
+                }
+            })
+            .then(ServerFilters.CatchLensFailure { request, lensFailure ->
+                logger.info { "Bad request: ${lensFailure.message}" }
+                Response(BAD_REQUEST).with(
+                        errorBody.outbound(request) of ErrorBody(lensFailure.failures.joinToString("; "))
+                )
+            })
+            .then(handler)
+            .asServer(SunHttp(listenPort))
+            .start().also {
+                logger.info { "Rest API listening on port ${it.port()} and were given $listenPort, attached on $basePath/" }
+            }
+
+    private fun onError(error: Exception, request: Request): Response {
+        logger.warn(error) { "Unexpected exception: $error" }
+        return errorResponse(request, SERVICE_UNAVAILABLE, error.message!!)
+    }
+
+    private fun errorResponse(request: Request, status: Status, errorMessage: String): Response =
+            Response(status).with(
+                    errorBody.outbound(request) of ErrorBody(errorMessage)
+            )
+
+    override fun close() {
+        server.close()
+        System.gc()
+        System.runFinalization()
+    }
+}

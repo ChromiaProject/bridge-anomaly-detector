@@ -4,11 +4,14 @@ import io.reactivex.disposables.Disposable
 import net.postchain.client.core.BlockDetail
 import net.postchain.client.core.PostchainClient
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
+import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.toHex
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.abi.EventEncoder
+import org.web3j.abi.datatypes.generated.Bytes32
+import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.protocol.core.DefaultBlockParameterName
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.methods.response.Log
@@ -30,7 +33,9 @@ class AnomalyDetector(
         private set
     var anomaliesDetected = 0L
         private set
-    var brigedPaused = false
+    var logsVerified = 0L
+        private set
+    var brigedPaused = false // TODO add detect unpaused contract
         private set
 
     fun start() {
@@ -61,16 +66,18 @@ class AnomalyDetector(
 
         val parameters = Contract.staticExtractEventParameters(TokenBridge.WITHDRAWREQUEST_EVENT, log)
 
-        // TODO extract brid and height
-//        val brid = parameters.nonIndexedValues[1].
-//        val height = parameters.nonIndexedValues[2].
-        val brid = "0x00".toByteArray()
-        val height = 1L
+        val heightParam = parameters.nonIndexedValues[1]
+        val bridParam = parameters.nonIndexedValues[2]
+        if (heightParam is Uint256 && bridParam is Bytes32) {
 
-        verifyHeight(brid, height, true)
+            verifyHeight(heightParam.value.toLong(), bridParam.value,  true)
+        } else {
+            logger.error { "Unexpected log parameters: ${parameters.indexedValues} and ${parameters.nonIndexedValues}" }
+            throw ProgrammerMistake("Unexpected log parameters: ${parameters.indexedValues} and ${parameters.nonIndexedValues}")
+        }
     }
 
-    private fun verifyHeight(brid: ByteArray, height: Long, retry: Boolean) {
+    private fun verifyHeight(height: Long, brid: ByteArray, retry: Boolean) {
 
         val blockAtHeight = postchainClient.blockAtHeight(height)
 
@@ -83,7 +90,7 @@ class AnomalyDetector(
                 logger.warn { "Retry in ${getLogTime(timeoutConfig.missingHeightTimeoutInHours)}" }
 
                 timer.schedule(timerTask {
-                    verifyHeight(brid, height, false)
+                    verifyHeight(height, brid, false)
                 }, timeoutConfig.missingHeightTimeoutInHours)
             } else {
 
@@ -97,7 +104,11 @@ class AnomalyDetector(
 
     private fun checkAnomaly(brid: ByteArray, blockAtHeight: BlockDetail) {
 
-        if (!brid.contentEquals(blockAtHeight.rid.data)) {
+        if (brid.contentEquals(blockAtHeight.rid.data)) {
+
+            logsVerified++
+
+        } else {
 
             logger.error { "Anomaly detected - log XXX referees to nonexistent block, brid: ${brid.toHex()}, height: TODO - token bridge contract will be paused in ${getLogTime(timeoutConfig.delayPauseInMinutes)}" }
 
