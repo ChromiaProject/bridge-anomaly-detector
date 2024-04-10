@@ -2,6 +2,7 @@ package net.postchain.eif.anomaly_detector
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
+import assertk.assertions.isNotNull
 import mu.KotlinLogging
 import net.postchain.base.BaseBlockWitness
 import net.postchain.base.configuration.KEY_SIGNERS
@@ -28,6 +29,8 @@ import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.anomaly_detector.config.AppConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
+import net.postchain.eif.anomaly_detector.rest.AnomalyStatus
+import net.postchain.eif.anomaly_detector.rest.statusBody
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
@@ -42,14 +45,24 @@ import net.postchain.gtv.gtvml.GtvMLParser
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtv.merkle.GtvMerkleHashCalculator
 import net.postchain.gtv.merkleHash
+import org.apache.hc.client5.http.config.RequestConfig
+import org.apache.hc.client5.http.cookie.StandardCookieSpec
+import org.apache.hc.client5.http.impl.classic.HttpClients
+import org.apache.hc.core5.util.Timeout
 import org.awaitility.Awaitility
 import org.awaitility.Duration
+import org.http4k.client.ApacheClient
+import org.http4k.core.HttpHandler
+import org.http4k.core.Method
+import org.http4k.core.Request
+import org.http4k.core.Status
+import org.http4k.core.then
+import org.http4k.filter.ClientFilters
+import org.http4k.filter.GzipCompressionMode
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -76,6 +89,8 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
+private const val BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS = 5L
+
 /**
  * This is based on EifIntegrationTest in postchain-chromia repository.
  */
@@ -84,7 +99,6 @@ import java.util.concurrent.TimeUnit
 @DisableIfTestFails
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AnomalyDetectorIT : EifBaseIntegrationTest(
-        evmType = EvmType.GETH,
 //        prependUrls = listOf("http://127.0.0.1:8888", "http://127.0.0.1:9999")
 ) {
 
@@ -133,6 +147,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     private lateinit var ecBcRid: BlockchainRid
     private var currentBlockHeight = 0L
     private lateinit var ecClient: PostchainClient
+    private lateinit var appConfig: AppConfig
+    private lateinit var anomalyDetectorsManager: AnomalyDetectorsManager
+    private val restApiHttpHandler = restApiHttpHandler()
 
     @BeforeAll
     fun setupBeforeAll() {
@@ -166,8 +183,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     @Test
-    @Order(1)
-    fun `deploy contracts`() {
+    @Order(10)
+    fun `prepare - deploy contracts`() {
         logger.info { "deploy contracts" }
 
         // Deploy validator contract
@@ -190,8 +207,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     @Test
-    @Order(2)
-    fun `start nodes`() {
+    @Order(20)
+    fun `prepare - start nodes`() {
         logger.info { "start nodes" }
 
         // c0
@@ -222,13 +239,70 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                         EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
                         listOf()
                 ))
-
-        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
     }
 
     @Test
-    @Order(3)
-    fun `register ft accounts`() {
+    @Order(30)
+    fun `start anomaly detector`() {
+
+        appConfig = AppConfig(
+
+                // Evm rpc
+                mapOf(networkId to listOf(evmRpcUrl)),
+
+                // Node and postchain
+                EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
+                ecBcRid.toHex(),
+                BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS,
+
+                // Timeouts disabled for tests to make it execute right away
+                TimeoutConfig(
+                        missingHeightTimeoutInHours = 0L,
+                        delayPauseInMinutes = 0L,
+                )
+        )
+
+        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
+        anomalyDetectorsManager.start()
+    }
+
+    @Test
+    @Order(40)
+    fun `start anomaly detector api`() {
+
+        val restApi = startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)
+        assertThat(restApi).isNotNull()
+
+        val restStatus = restStatus()
+        assertThat(restStatus.size).isEqualTo(0)
+    }
+
+    @Test
+    @Order(50)
+    fun `add chain to monitor`() {
+
+        Awaitility.await()
+                .atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
+                }
+
+        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
+
+        Awaitility.await()
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
+                }
+
+        val restStatus = restStatus()
+        assertThat(restStatus.size).isEqualTo(1)
+        assertThat(restStatus[0].blockchainRid).isEqualTo(eifBcRid.toHex())
+    }
+
+    @Test
+    @Order(60)
+    fun `prepare - register ft accounts`() {
         logger.info { "register ft accounts" }
 
         val sigMaker = cryptoSystem.buildSigMaker(KeyPair(KeyPairHelper.pubKey(0), KeyPairHelper.privKey(0)))
@@ -304,8 +378,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
 
     @Test
-    @Order(4)
-    fun `deposit token on evm`() {
+    @Order(70)
+    fun `prepare - deposit token on evm`() {
         logger.info { "deposit token on evm" }
 
         // Deposit token on EVM smart contract to bridge it to postchain
@@ -346,8 +420,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     @Test
-    @Order(5)
-    fun `withdraw token to evm`() {
+    @Order(80)
+    fun `prepare - withdraw token to evm`() {
         logger.info { "withdraw token to evm" }
 
         // Bridge some ft token to evm
@@ -484,27 +558,27 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     @Test
-    @Order(6)
-    fun `detector - verify correct withdrawrequest`() {
+    @Order(90)
+    fun `verify correct withdrawrequest`() {
 
-        val appConfig = AppConfig(
-
-                // Evm rpc
-                mapOf(networkId to listOf(evmRpcUrl)),
-
-                // Node and postchain
-                EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
-                ecBcRid.toHex(),
-                15L,
-
-                // Timeouts disabled for tests to make it execute right away
-                TimeoutConfig(
-                        missingHeightTimeoutInHours = 0L,
-                        delayPauseInMinutes = 0L,
-                )
-        )
-
-        val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
+//        val appConfig = AppConfig(
+//
+//                // Evm rpc
+//                mapOf(networkId to listOf(evmRpcUrl)),
+//
+//                // Node and postchain
+//                EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
+//                ecBcRid.toHex(),
+//                15L,
+//
+//                // Timeouts disabled for tests to make it execute right away
+//                TimeoutConfig(
+//                        missingHeightTimeoutInHours = 0L,
+//                        delayPauseInMinutes = 0L,
+//                )
+//        )
+//
+//        val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
         var anomalyDetectors = mapOf<String, AnomalyDetector>()
 
         anomalyDetectorsManager.start()
@@ -525,23 +599,58 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
                     assertThat(anomalyDetector.logsProcessed).isEqualTo(1L)
                     assertThat(anomalyDetector.logsVerified).isEqualTo(1L)
-//                    assertThat(anomalyDetector.anomaliesDetected).isEqualTo(1L)
-                    assertFalse(anomalyDetector.brigedPaused)
+                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.NO_ANOMALIES)
                 }
-
-//        Awaitility.await().atMost(Duration.FOREVER).pollDelay(5, TimeUnit.SECONDS).untilAsserted {
-//            logger.info { "Keeping alive...." }
-//            fail("keep alive")
-//        }
     }
 
-    fun sealBlock() {
+//    @Test
+//    @Order(150)
+//    fun `remove chain from monitor`() {
+//
+//        Awaitility.await()
+//                .atMost(Duration.TEN_SECONDS)
+//                .untilAsserted {
+//                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
+//                }
+//
+//        awaitTransaction(ecClient, ecChainId) { it.addOperation("remove_anomaly_detection", gtv(eifBcRid)) }
+//
+//        Awaitility.await()
+//                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+//                .untilAsserted {
+//                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
+//                }
+//
+//        val restStatus = restStatus()
+//        assertThat(restStatus.size).isEqualTo(0)
+//    }
+
+    @Test
+    @Order(900)
+    fun `keep intances alive`() {
+        Awaitility.await().atMost(Duration.FOREVER).pollInterval(5, TimeUnit.SECONDS).untilAsserted {
+            logger.info { "Keeping alive...." }
+            fail("keep alive")
+        }
+    }
+
+    private fun restApiHttpHandler(): HttpHandler {
+        return ClientFilters.AcceptGZip(GzipCompressionMode.Streaming()).then(ApacheClient(HttpClients.custom()
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setRedirectsEnabled(false)
+                        .setCookieSpec(StandardCookieSpec.IGNORE)
+                        .setConnectionRequestTimeout(Timeout.ofMilliseconds(5_000L))
+                        .setResponseTimeout(Timeout.ofMilliseconds(10_000))
+                        .build()).build()))
+    }
+
+    private fun sealBlock() {
         currentBlockHeight += 1
         buildBlock(DEFAULT_CHAIN_IID)
         assertEquals(currentBlockHeight, getLastHeight(node))
     }
 
-    fun enqueueTx(data: ByteArray) {
+    private fun enqueueTx(data: ByteArray) {
         try {
             // In a multi-node environment, we need to add tx to each node's txQueue
             // to ensure that the tx will be included in the next block.
@@ -618,18 +727,24 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     private fun loadEifBlockchainConfig(): Gtv = GtvMLParser.parseGtvML(
-            javaClass.getResource("/net/postchain/eif/blockchain_config_it.xml")!!.readText()
+            javaClass.getResource("/net/postchain/eif/blockchain_eif_it.xml")!!.readText()
     )
 
     private fun loadMockedEconomyBlockchainConfig(
             eifBcRid: BlockchainRid,
             contractAddress: String): Gtv {
 
-        val config = javaClass.getResource("/mocked_economy_chain.xml")!!.readText()
+        val config = javaClass.getResource("/net/postchain/eif/blockchain_mocked_ec_it.xml")!!.readText()
                 .replace("EIF_BCRID", eifBcRid.toHex())
                 .replace("EVM_NETWORK_ID", networkId.toString())
                 .replace("BRIDGE_CONTRACT", contractAddress)
 
         return GtvMLParser.parseGtvML(config)
+    }
+
+    private fun restStatus(): List<AnomalyStatus> {
+        val response = restApiHttpHandler.invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/status"))
+        assertThat(response.status).isEqualTo(Status.OK)
+        return statusBody(response)
     }
 }

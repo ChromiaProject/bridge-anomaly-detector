@@ -20,11 +20,18 @@ import java.util.Timer
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.timerTask
 
+enum class AnomalyDetectorStatus {
+    NO_ANOMALIES,
+    ANOMALY_FOUND,
+    PAUSE_TRANSACTION_SENT,
+    PAUSED,
+}
+
 class AnomalyDetector(
         private val timeoutConfig: TimeoutConfig,
         private val web3jRequestHandler: Web3jRequestHandler,
         private val postchainClient: PostchainClient,
-        private val tokenBridgeContractAddresses: String
+        val tokenBridgeContractAddresses: String
 ) {
 
     private var timer = Timer()
@@ -35,7 +42,7 @@ class AnomalyDetector(
         private set
     var logsVerified = 0L
         private set
-    var brigedPaused = false // TODO add detect unpaused contract
+    var anomalyDetectorStatus = AnomalyDetectorStatus.NO_ANOMALIES
         private set
 
     fun start() {
@@ -81,8 +88,7 @@ class AnomalyDetector(
 
         val blockAtHeight = postchainClient.blockAtHeight(height)
 
-        if (blockAtHeight == null) { // TODO or will blockAtHeight throw an exception?
-            // TODO queue this for reverification in 24h (configured)
+        if (blockAtHeight == null) {
 
             logger.warn { "Height $height not found in node" }
 
@@ -116,6 +122,7 @@ class AnomalyDetector(
                 pauseTokenBridge()
             }, timeoutConfig.delayPauseInMinutes)
 
+            anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND
             anomaliesDetected++
         }
     }
@@ -127,7 +134,8 @@ class AnomalyDetector(
         if (isTokenBridgeActive()) {
             // TODO pause the contract
 
-            brigedPaused = true
+            anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
+            anomalyDetectorStatus = AnomalyDetectorStatus.PAUSED
         } else {
             // TODO already paused
         }
@@ -135,6 +143,7 @@ class AnomalyDetector(
 
     private fun isTokenBridgeActive(): Boolean {
         // TODO check if the bridge is active or paused
+        // TODO if in anomalyDetectorStatus == AnomalyDetectorStatus.PAUSED and active, enable it again?
         return true
     }
 

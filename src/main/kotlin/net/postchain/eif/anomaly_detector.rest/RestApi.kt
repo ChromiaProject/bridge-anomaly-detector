@@ -1,8 +1,8 @@
-// Copyright (c) 2020 ChromaWay AB. See README for license information.
-
 package net.postchain.eif.anomaly_detector.rest
 
 import mu.KLogging
+import net.postchain.eif.anomaly_detector.AnomalyDetectorStatus
+import net.postchain.eif.anomaly_detector.AnomalyDetectorsManager
 import org.http4k.core.Body
 import org.http4k.core.Filter
 import org.http4k.core.Method.GET
@@ -32,16 +32,26 @@ import org.http4k.server.SunHttp
 import org.http4k.server.asServer
 import java.io.Closeable
 
+data class ErrorBody(val error: String = "")
+data class Version(val version: Int)
+data class AnomalyStatus(
+        val blockchainRid: String,
+        val status: AnomalyDetectorStatus,
+        val tokenBridgeContractAddresses: String,
+        val logsProcessed: Long,
+        val anomaliesDetected: Long,
+        val logsVerified: Long,
+)
+
+val statusBody = Body.auto<List<AnomalyStatus>>().toLens()
 val versionBody = Body.auto<Version>().toLens()
 val errorJsonBody = Body.auto<ErrorBody>().toLens()
 val errorBody = ContentNegotiation.auto(errorJsonBody)
 
-data class ErrorBody(val error: String = "")
-data class Version(val version: Int)
-
 class RestApi(
         private val listenPort: Int,
-        val basePath: String
+        val basePath: String,
+        private val anomalyDetectorsManager: AnomalyDetectorsManager
 ) : Closeable {
 
     companion object : KLogging() {
@@ -51,8 +61,28 @@ class RestApi(
     private val app = routes(
             "/" bind static(ResourceLoader.Classpath("/restapi-root")),
 
+            "/status" bind GET to ::getStatus,
+
             "/version" bind GET to ::getVersion,
     )
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun getStatus(request: Request): Response {
+
+        val statuses = anomalyDetectorsManager.getAnomalyDetectors()
+                .map { AnomalyStatus(
+                        it.key,
+                        it.value.anomalyDetectorStatus,
+                        it.value.tokenBridgeContractAddresses,
+                        it.value.logsProcessed,
+                        it.value.anomaliesDetected,
+                        it.value.logsVerified,
+                ) }
+
+        return Response(OK).with(
+                statusBody of statuses
+        )
+    }
 
     @Suppress("UNUSED_PARAMETER")
     private fun getVersion(request: Request): Response = Response(OK).with(

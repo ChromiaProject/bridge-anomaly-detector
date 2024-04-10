@@ -37,10 +37,6 @@ import org.web3j.tx.response.PollingTransactionReceiptProcessor
 import java.io.File
 import java.math.BigInteger
 
-enum class EvmType {
-    GETH, BSC
-}
-
 data class AccountRegister(
         var accountId: ByteArray = ByteArray(32),
         val privKey: ByteArray,
@@ -57,27 +53,15 @@ val myCS = Secp256K1CryptoSystem()
 
 class GethContainer : DockerComposeContainer<GethContainer>(File("src/test/resources/geth-compose/docker-compose.yml"))
 
-class BscContainer : DockerComposeContainer<BscContainer>(File("src/test/resources/bsc-compose/docker-compose.yml"))
-
-abstract class EifBaseIntegrationTest(evmType: EvmType, private val prependUrls: List<String> = listOf()) : ManagedModeTest() {
+abstract class EifBaseIntegrationTest(private val prependUrls: List<String> = listOf()) : ManagedModeTest() {
 
     val networkId = 1337L
     val gasProvider = DefaultGasProvider()
-    protected val evmContainer: DockerComposeContainer<*> = when (evmType) {
-        EvmType.GETH -> {
+    protected val evmContainer: DockerComposeContainer<*> =
             GethContainer().withExposedService(
                     "geth", 8545,
                     Wait.forLogMessage(".*HTTP server started.*\\s", 1)
             )
-        }
-
-        EvmType.BSC -> {
-            BscContainer().withExposedService(
-                    "geth", 8545,
-                    Wait.forLogMessage(".*HTTP server started.*\\s", 1)
-            )
-        }
-    }
     val credentials = Credentials
             .create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610")
     val registerAccounts = mutableListOf<AccountRegister>()

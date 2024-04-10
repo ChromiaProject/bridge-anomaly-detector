@@ -3,6 +3,7 @@ package net.postchain.eif.anomaly_detector
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.request.EndpointPool
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.config.RestApiConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
 import net.postchain.eif.anomaly_detector.rest.RestApi
 
@@ -23,22 +24,30 @@ fun main(args: Array<String>) {
             TimeoutConfig()
     )
 
-    AnomalyDetectorsManager(appConfig).start()
+    val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
+    anomalyDetectorsManager.start()
 
-    val restApi: RestApi? = with(appConfig.restApiConfig) {
+    startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)
+}
+
+fun startRestApi(restApiConfig: RestApiConfig, anomalyDetectorsManager: AnomalyDetectorsManager): RestApi? {
+
+    val restApi: RestApi? = with(restApiConfig) {
         if (port != -1) {
-            logger.info { "Starting REST API on port $port and path $basePath/" }
+            net.postchain.client.impl.PostchainClientImpl.logger.info { "Starting REST API on port $port and path $basePath/" }
             try {
                 RestApi(
                         listenPort = port,
                         basePath = basePath,
+                        anomalyDetectorsManager = anomalyDetectorsManager
                 )
             } catch (e: Exception) {
-                logger.error("Unable to start REST API on port $port", e)
+                net.postchain.client.impl.PostchainClientImpl.logger.error("Unable to start REST API on port $port", e)
                 throw e
             }
         } else {
             null
         }
     }
+    return restApi
 }
