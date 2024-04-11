@@ -1,8 +1,10 @@
 package net.postchain.eif.anomaly_detector.rest
 
 import mu.KLogging
-import net.postchain.eif.anomaly_detector.AnomalyDetectorStatus
+import net.postchain.common.toHex
+import net.postchain.eif.anomaly_detector.AnomalyDetector
 import net.postchain.eif.anomaly_detector.AnomalyDetectorsManager
+import net.postchain.eif.anomaly_detector.LogVerificationStatus
 import org.http4k.core.Body
 import org.http4k.core.Filter
 import org.http4k.core.Method.GET
@@ -26,6 +28,7 @@ import org.http4k.format.auto
 import org.http4k.lens.ContentNegotiation
 import org.http4k.routing.ResourceLoader
 import org.http4k.routing.bind
+import org.http4k.routing.path
 import org.http4k.routing.routes
 import org.http4k.routing.static
 import org.http4k.server.SunHttp
@@ -34,17 +37,31 @@ import java.io.Closeable
 
 data class ErrorBody(val error: String = "")
 data class Version(val version: Int)
-data class AnomalyStatus(
+data class AnomalyDetectorStatusResponse(
         val blockchainRid: String,
-        val status: AnomalyDetectorStatus,
+        val status: net.postchain.eif.anomaly_detector.AnomalyDetectorStatus,
+        val networkId: Long,
         val tokenBridgeContractAddresses: String,
         val logsProcessed: Long,
         val anomaliesDetected: Long,
         val logsVerified: Long,
-        // TODO network id?
+        val lastBlockNumberProcessed: Long,
 )
 
-val statusBody = Body.auto<List<AnomalyStatus>>().toLens()
+data class AnomalyResponse(
+        var height: Long,
+        var brid: String,
+        var lastUpdatedTimestamp: Long,
+        var nextActionTimestamp: Long,
+)
+
+data class AnomaliesResponse(
+        var anomalies: List<AnomalyResponse> = mutableListOf(),
+        var potentialAnomalies: List<AnomalyResponse> = mutableListOf()
+)
+
+val anomaliesBody = Body.auto<AnomaliesResponse>().toLens()
+val statusBody = Body.auto<List<AnomalyDetectorStatusResponse>>().toLens()
 val versionBody = Body.auto<Version>().toLens()
 val errorJsonBody = Body.auto<ErrorBody>().toLens()
 val errorBody = ContentNegotiation.auto(errorJsonBody)
@@ -63,22 +80,45 @@ class RestApi(
             "/" bind static(ResourceLoader.Classpath("/restapi-root")),
 
             "/status" bind GET to ::getStatus,
+            "/anomalies/{blockchainRid}" bind GET to ::getAnomalies,
 
             "/version" bind GET to ::getVersion,
     )
+
+    private fun getAnomalies(request: Request): Response {
+
+        val bcRid = request.path("blockchainRid")
+        if (bcRid.isNullOrBlank()) {
+            return errorResponse(request, BAD_REQUEST, "Missing blockchainRid")
+        }
+
+        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors()[bcRid]
+        if (anomalyDetector == null) {
+            return errorResponse(request, BAD_REQUEST, "No anomaly detector for blockchainRid $bcRid[0]")
+        }
+
+        return Response(OK).with(anomaliesBody of AnomaliesResponse(
+                anomalies = mapAnomalies(anomalyDetector, LogVerificationStatus.ANOMALY),
+                potentialAnomalies = mapAnomalies(anomalyDetector, LogVerificationStatus.RETRY)
+        ))
+    }
 
     @Suppress("UNUSED_PARAMETER")
     private fun getStatus(request: Request): Response {
 
         val statuses = anomalyDetectorsManager.getAnomalyDetectors()
-                .map { AnomalyStatus(
-                        it.key,
-                        it.value.anomalyDetectorStatus,
-                        it.value.tokenBridgeContractAddresses,
-                        it.value.logsProcessed,
-                        it.value.anomaliesDetected,
-                        it.value.logsVerified,
-                ) }
+                .map {
+                    AnomalyDetectorStatusResponse(
+                            it.key,
+                            it.value.anomalyDetectorStatus,
+                            it.value.networkId,
+                            it.value.tokenBridgeContractAddresses,
+                            it.value.logsProcessed,
+                            it.value.anomaliesDetected,
+                            it.value.logsVerified,
+                            it.value.lastBlockNumberProcessed.longValueExact(),
+                    )
+                }
 
         return Response(OK).with(
                 statusBody of statuses
@@ -134,5 +174,12 @@ class RestApi(
         server.close()
         System.gc()
         System.runFinalization()
+    }
+
+    private fun mapAnomalies(anomalyDetector: AnomalyDetector, status: LogVerificationStatus): List<AnomalyResponse> {
+
+        return anomalyDetector.anomaliesCache.getAnomalies()
+                .filter { it.logVerification.status == status }
+                .map { AnomalyResponse(it.logVerification.height, it.logVerification.brid.toHex(), it.timestamp, it.timestamp + it.delay) }
     }
 }

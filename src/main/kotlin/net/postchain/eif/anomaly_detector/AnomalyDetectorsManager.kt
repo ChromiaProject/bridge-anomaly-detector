@@ -78,7 +78,15 @@ class AnomalyDetectorsManager(
                 val web3jRequestHandler = createWeb3jRequestHandler(evmConfig.rpcUrls)
                 val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
 
-                val anomalyDetector = AnomalyDetector(appConfig.timeoutConfig, web3jRequestHandler, client, postchainClient, blockchainToMonitor.bridgeContract)
+                val anomalyDetector = AnomalyDetector(
+                        appConfig.timeoutConfig,
+                        evmConfig.logProcessorConfig,
+                        web3jRequestHandler,
+                        client,
+                        postchainClient,
+                        blockchainToMonitor.bridgeContract,
+                        blockchainToMonitor.evmNetworkId
+                )
                 anomalyDetectors[blockchainToMonitor.blockchainRid.toHex()] = anomalyDetector
                 anomalyDetector.start()
             }

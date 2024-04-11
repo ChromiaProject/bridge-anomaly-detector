@@ -3,6 +3,7 @@ package net.postchain.eif.anomaly_detector
 import net.postchain.client.request.EndpointPool
 import net.postchain.eif.anomaly_detector.config.AppConfig
 import net.postchain.eif.anomaly_detector.config.EvmConfig
+import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
 import net.postchain.eif.anomaly_detector.config.RestApiConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
@@ -22,7 +23,8 @@ fun main(args: Array<String>) {
             evmConfig = mapOf(
                     1337L to EvmConfig(
                     listOf("http://localhost:33253"),
-                    Credentials.create("0000000000000000000000000000000000000000000000000000000000000000")
+                    Credentials.create("0000000000000000000000000000000000000000000000000000000000000000"),
+                            LogProcessorConfig(200, 5_000, 15_000)
             )),
             EndpointPool.singleUrl("http://127.0.0.1:7740"),
             "0000000000000000000000000000000000000000000000000000000000000002",

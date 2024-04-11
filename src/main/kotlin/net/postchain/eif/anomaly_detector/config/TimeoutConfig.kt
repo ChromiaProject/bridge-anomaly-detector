@@ -3,6 +3,6 @@ package net.postchain.eif.anomaly_detector.config
 import java.util.concurrent.TimeUnit
 
 data class TimeoutConfig(
-        val missingHeightTimeoutInHours: Long = TimeUnit.HOURS.toMillis(24),
-        val delayPauseInMinutes: Long = TimeUnit.MINUTES.toMillis(120),
+        val missingHeightRetryDelay: Long = TimeUnit.HOURS.toMillis(24),
+        val pauseDelay: Long = TimeUnit.MINUTES.toMillis(120),
 )

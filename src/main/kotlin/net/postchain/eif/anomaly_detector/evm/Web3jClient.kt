@@ -34,27 +34,41 @@ class Web3jClient(
         throw ProgrammerMistake("Failed to call all rpc endpoints for network $networkId")
     }
 
-    fun <T : Response<*>> sendWeb3jRequest(
+    fun <T : Response<*>> sendRequest(
             requestFactory: (Web3j) -> Request<*, T>
     ): T {
-        val requests = web3jClients.map(requestFactory)
-        for (request in requests) {
+
+        return withAnyClient {
+            val request = requestFactory(it)
+            val response = request.send()
+
+            if (response.hasError()) {
+                val errorMessage = "Web3J error code: ${response.error.code} and message: ${response.error.message}"
+                throw ProgrammerMistake(errorMessage)
+            }
+
+            response
+        }
+    }
+
+    fun <T> withAnyClient(action: (Web3j) -> T?): T {
+
+        for (web3jClient in web3jClients) {
 
             try {
-                val response = request.send()
+                val result = action(web3jClient)
 
-                if (response.hasError()) {
-                    val errorMessage = "Web3J error code: ${response.error.code} and message: ${response.error.message}"
-                    throw ProgrammerMistake(errorMessage)
+                if (result != null) {
+                    return result
                 }
 
-                return response
+                logger.warn{ "Failed to call rpc endpoint for network ${networkId}:" }
             } catch (e: Exception) {
-                logger.error("Web3j request failed: ${e.message}", e)
+                logger.warn(e) { "Failed to call rpc endpoint for network ${networkId}: ${e.message}" }
             }
         }
 
-        throw ProgrammerMistake("Failed to send web3j request to all ${web3jClients.size} nodes")
+        throw ProgrammerMistake("Failed to call all rpc endpoints for network $networkId")
     }
 
     private fun getTokenBridge(tokenBridgeContractAddresses: String): List<TokenBridge> {

@@ -4,5 +4,6 @@ import org.web3j.crypto.Credentials
 
 data class EvmConfig(
         val rpcUrls: List<String>,
-        val credentials: Credentials
+        val credentials: Credentials,
+        val logProcessorConfig: LogProcessorConfig,
 )

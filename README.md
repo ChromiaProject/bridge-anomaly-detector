@@ -11,4 +11,5 @@ TODO
  - ci pipelines
  - Pull full EC for testing (not using the current mocked version)?
  - This readme - short description and usage
+ - Integration test in postchain-chromia?
 

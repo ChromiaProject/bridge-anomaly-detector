@@ -29,9 +29,10 @@ import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.anomaly_detector.config.AppConfig
 import net.postchain.eif.anomaly_detector.config.EvmConfig
+import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
-import net.postchain.eif.anomaly_detector.rest.AnomalyStatus
+import net.postchain.eif.anomaly_detector.rest.AnomalyDetectorStatusResponse
 import net.postchain.eif.anomaly_detector.rest.statusBody
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
@@ -250,7 +251,11 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         appConfig = AppConfig(
 
                 // Evm rpc
-                mapOf(networkId to EvmConfig(listOf("http://localhost:5345", evmRpcUrl), Credentials.create("0000000000000000000000000000000000000000000000000000000000000000"))),
+                mapOf(networkId to EvmConfig(
+                        listOf("http://localhost:5345", evmRpcUrl),
+                        Credentials.create("0000000000000000000000000000000000000000000000000000000000000000"),
+                        LogProcessorConfig(2, 10, 50)
+                )),
 
                 // Node and postchain
                 EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
@@ -259,8 +264,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
                 // Timeouts disabled for tests to make it execute right away
                 TimeoutConfig(
-                        missingHeightTimeoutInHours = 0L,
-                        delayPauseInMinutes = 0L,
+                        missingHeightRetryDelay = 0,
+                        pauseDelay = 0,
                 )
         )
 
@@ -746,7 +751,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         return GtvMLParser.parseGtvML(config)
     }
 
-    private fun restStatus(): List<AnomalyStatus> {
+    private fun restStatus(): List<AnomalyDetectorStatusResponse> {
         val response = restApiHttpHandler.invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/status"))
         assertThat(response.status).isEqualTo(Status.OK)
         return statusBody(response)

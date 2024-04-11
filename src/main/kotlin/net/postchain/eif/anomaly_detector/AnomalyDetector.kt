@@ -7,27 +7,22 @@ import net.postchain.client.core.PostchainClient
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.toHex
+import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
+import net.postchain.eif.anomaly_detector.evm.EvmLogProcessor
 import net.postchain.eif.anomaly_detector.evm.Web3jClient
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.FunctionEncoder
-import org.web3j.abi.TypeReference
-import org.web3j.abi.datatypes.Bool
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.protocol.core.DefaultBlockParameter
 import org.web3j.protocol.core.DefaultBlockParameterName
 import org.web3j.protocol.core.methods.request.EthFilter
-import org.web3j.protocol.core.methods.request.Transaction
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.tx.Contract
 import java.math.BigInteger
-import java.util.Timer
 import java.util.concurrent.TimeUnit
-import kotlin.concurrent.schedule
-import kotlin.concurrent.timerTask
 
 
 enum class AnomalyDetectorStatus {
@@ -39,17 +34,19 @@ enum class AnomalyDetectorStatus {
 
 class AnomalyDetector(
         private val timeoutConfig: TimeoutConfig,
+        private val logProcessorConfig: LogProcessorConfig,
         private val web3jRequestHandler: Web3jRequestHandler,
         private val web3jClient: Web3jClient,
         private val postchainClient: PostchainClient,
-        val tokenBridgeContractAddresses: String
+        val tokenBridgeContractAddresses: String,
+        val networkId: Long,
 ) {
 
-    private var timer = Timer()
     private var logSubscription: Disposable? = null
     private var blockchainRid = postchainClient.config.blockchainRid
 
     // State
+    var anomaliesCache = AnomaliesCache()
     var anomalyDetectorStatus = AnomalyDetectorStatus.NO_ANOMALIES
         private set
     var logsProcessed = 0L
@@ -57,6 +54,8 @@ class AnomalyDetector(
     var anomaliesDetected = 0L
         private set
     var logsVerified = 0L
+        private set
+    var lastBlockNumberProcessed = BigInteger.ZERO
         private set
 
     // Log subscriptions
@@ -66,61 +65,73 @@ class AnomalyDetector(
             TokenBridge.WITHDRAWREQUEST_EVENT
     )
     private val eventMap = eventsToRead.associateBy(EventEncoder::encode)
+    private lateinit var evmLogProcessor: EvmLogProcessor
 
     fun start() {
 
-        val blockNumber = web3jRequestHandler.sendWeb3jRequest { it.ethBlockNumber() }.blockNumber
+        val currentBlockNumber = web3jRequestHandler.sendWeb3jRequest { it.ethBlockNumber() }.blockNumber
 
-        logInfo { "Starting anomaly detector for bcRid ${blockchainRid.toHex()} monitoring bridge contract ${tokenBridgeContractAddresses} from block number $blockNumber" }
+        logInfo { "Starting anomaly detector for bcRid ${blockchainRid.toHex()} monitoring bridge contract ${tokenBridgeContractAddresses} from block number $currentBlockNumber" }
 
         anomalyDetectorStatus = setInitialDetectorStatus()
 
-        setupLogSubscription(blockNumber)
+//        setupLogSubscription(currentBlockNumber)
+        setupLogProcessorJob(currentBlockNumber.toLong())
+    }
+
+    private fun setupLogProcessorJob(currentBlockNumber: Long) {
+        evmLogProcessor = EvmLogProcessor(
+                logProcessorConfig,
+                tokenBridgeContractAddresses,
+                eventsToRead,
+                currentBlockNumber,
+                web3jClient,
+                ::onLog
+        )
     }
 
     private fun queryIsTokenBridgePaused(): Boolean {
-
-        val function = org.web3j.abi.datatypes.Function(
-                "paused",
-                listOf(),
-                listOf(TypeReference.create(Bool::class.java))
-        )
-
-        val encodedFunction = FunctionEncoder.encode(function)
-        val sendWeb3jRequest = web3jClient.sendWeb3jRequest {
-            it.ethCall(
-                    Transaction.createEthCallTransaction(tokenBridgeContractAddresses, tokenBridgeContractAddresses, encodedFunction),
-                    DefaultBlockParameterName.LATEST
-            )
-        }
 
         return web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
             it.paused()
         }.value
     }
 
+    // Flow subscriptions is really nice but don't support multiple rpc for failover
     private fun setupLogSubscription(blockNumber: BigInteger?) {
-        val eventSignatures = eventMap.keys.toTypedArray()
 
+        val eventSignatures = eventMap.keys.toTypedArray()
         val filter = EthFilter(
                 DefaultBlockParameter.valueOf(blockNumber),
                 DefaultBlockParameterName.LATEST,
                 tokenBridgeContractAddresses)
                 .addOptionalTopics(*eventSignatures)
 
-        logSubscription = web3jRequestHandler.getClient().ethLogFlowable(filter).subscribe(::onLog)
+        logSubscription = web3jClient.withAnyClient {
+            val disposable = it.ethLogFlowable(filter).subscribe(::onLog) {
+                logError { "Error in log subscription: $it" }
+                // TODO: how to deal with this? Reconnect?
+            }
+            if (disposable.isDisposed)
+                null
+            else
+                disposable
+        }
     }
 
     private fun onLog(log: Log) {
 
         val matchingEvent = eventMap[log.topics[0]] ?: throw ProgrammerMistake("No matching event for log: $log")
+        lastBlockNumberProcessed = log.blockNumber
 
         when (matchingEvent) {
             TokenBridge.PAUSED_EVENT -> bridgePaused()
-            TokenBridge.UNPAUSED_EVENT -> {}
-            TokenBridge.WITHDRAWREQUEST_EVENT -> {}
+            TokenBridge.UNPAUSED_EVENT -> bridgeUnpaused()
+            TokenBridge.WITHDRAWREQUEST_EVENT -> withdrawRequestEvent(log)
         }
-//        val parameters = Contract.staticExtractEventParameters(matchingEvent, event)
+    }
+
+    private fun withdrawRequestEvent(log: Log) {
 
         logInfo { "Log: ${log.logIndex}" }
         logsProcessed++
@@ -131,7 +142,9 @@ class AnomalyDetector(
         val bridParam = parameters.nonIndexedValues[2]
         if (heightParam is Uint256 && bridParam is Bytes32) {
 
-            verifyHeight(heightParam.value.toLong(), bridParam.value, true)
+            val logVerification = LogVerification(log, heightParam.value.toLong(), bridParam.value)
+
+            verifyHeight(logVerification, true)
         } else {
             logError { "Unexpected log parameters: ${parameters.indexedValues} and ${parameters.nonIndexedValues}" }
             throw ProgrammerMistake("Unexpected log parameters: ${parameters.indexedValues} and ${parameters.nonIndexedValues}")
@@ -145,47 +158,50 @@ class AnomalyDetector(
         anomalyDetectorStatus = AnomalyDetectorStatus.PAUSED
     }
 
-    private fun verifyHeight(height: Long, brid: ByteArray, retry: Boolean) {
+    private fun bridgeUnpaused() {
 
-        val blockAtHeight = postchainClient.blockAtHeight(height)
+        logWarn { "Bridge was UNpaused" }
+
+        anomalyDetectorStatus = AnomalyDetectorStatus.NO_ANOMALIES // TODO what state? Do we have anomalies?
+    }
+
+    private fun verifyHeight(logVerification: LogVerification, retry: Boolean) {
+
+        val blockAtHeight = postchainClient.blockAtHeight(logVerification.height)
 
         if (blockAtHeight == null) {
 
-            logWarn { "Height $height not found in node" }
+            logWarn { "Height ${logVerification.height} not found in node" }
 
             if (retry) {
-                logWarn { "Retry in ${getLogTime(timeoutConfig.missingHeightTimeoutInHours)}" }
+                logWarn { "Retry in ${getLogTime(timeoutConfig.missingHeightRetryDelay)}" }
 
-                val schedule = timer.schedule(timeoutConfig.missingHeightTimeoutInHours + 1000) {
-                    verifyHeight(height, brid, false)
+                anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, timeoutConfig.missingHeightRetryDelay + 1000) {
+                    verifyHeight(logVerification, false)
                 }
-                schedule.cancel()
-                timer.schedule(timerTask {
-                    verifyHeight(height, brid, false)
-                }, timeoutConfig.missingHeightTimeoutInHours)
             } else {
 
                 pauseTokenBridge()
             }
         } else {
 
-            checkAnomaly(brid, blockAtHeight)
+            checkAnomaly(logVerification, blockAtHeight)
         }
     }
 
-    private fun checkAnomaly(brid: ByteArray, blockAtHeight: BlockDetail) {
+    private fun checkAnomaly(logVerification: LogVerification, blockAtHeight: BlockDetail) {
 
-        if (brid.contentEquals(blockAtHeight.rid.data)) {
+        if (logVerification.brid.contentEquals(blockAtHeight.rid.data)) {
 
             logsVerified++
 
         } else {
 
-            logError { "Anomaly detected - log XXX referees to nonexistent block, brid: ${brid.toHex()}, height: TODO - token bridge contract will be paused in ${getLogTime(timeoutConfig.delayPauseInMinutes)}" }
+            logError { "Anomaly detected - log index ${logVerification.log.logIndex} referees to block at height ${logVerification.height} with brid ${logVerification.brid.toHex()} but local brid is ${blockAtHeight.rid.toHex()} - token bridge contract will be paused in ${getLogTime(timeoutConfig.pauseDelay)}" }
 
-            timer.schedule(timerTask {
+            anomaliesCache.schedule(logVerification, LogVerificationStatus.ANOMALY, timeoutConfig.pauseDelay) {
                 pauseTokenBridge()
-            }, timeoutConfig.delayPauseInMinutes)
+            }
 
             anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND
             anomaliesDetected++
@@ -218,7 +234,8 @@ class AnomalyDetector(
 
     fun stop() {
         logSubscription?.apply { dispose() }
-        timer.cancel()
+        anomaliesCache.cancelTimer()
+        evmLogProcessor.shutdown()
     }
 
     private fun setInitialDetectorStatus() = if (queryIsTokenBridgePaused())
