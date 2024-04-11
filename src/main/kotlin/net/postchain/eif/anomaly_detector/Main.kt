@@ -1,13 +1,15 @@
 package net.postchain.eif.anomaly_detector
 
-import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.request.EndpointPool
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.config.EvmConfig
 import net.postchain.eif.anomaly_detector.config.RestApiConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
+import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.rest.RestApi
+import org.web3j.crypto.Credentials
 
-data class Blockchain (
+data class Blockchain(
         val blockchainRid: ByteArray,
         val evmNetworkId: Long,
         val bridgeContract: String
@@ -17,14 +19,19 @@ fun main(args: Array<String>) {
 
     // TODO read from config, preferable the same as node?
     val appConfig = AppConfig(
-            mapOf(1337L to listOf("http://localhost:33253")),
+            evmConfig = mapOf(
+                    1337L to EvmConfig(
+                    listOf("http://localhost:33253"),
+                    Credentials.create("0000000000000000000000000000000000000000000000000000000000000000")
+            )),
             EndpointPool.singleUrl("http://127.0.0.1:7740"),
             "0000000000000000000000000000000000000000000000000000000000000002",
             10L,
             TimeoutConfig()
     )
 
-    val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
+    val web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
+    val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager)
     anomalyDetectorsManager.start()
 
     startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)

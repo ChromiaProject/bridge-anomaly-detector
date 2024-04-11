@@ -41,6 +41,7 @@ data class AnomalyStatus(
         val logsProcessed: Long,
         val anomaliesDetected: Long,
         val logsVerified: Long,
+        // TODO network id?
 )
 
 val statusBody = Body.auto<List<AnomalyStatus>>().toLens()

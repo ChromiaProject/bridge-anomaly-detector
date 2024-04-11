@@ -17,13 +17,17 @@ import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
 import net.postchain.economy.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.anomaly_detector.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
-class AnomalyDetectorsManager(private val appConfig: AppConfig) {
+class AnomalyDetectorsManager(
+        private val appConfig: AppConfig,
+        private val web3jClientsManager: Web3jClientsManager
+) {
 
     private val anomalyDetectors = mutableMapOf<String, AnomalyDetector>()
     private lateinit var bridgeMonitorJob: Job
@@ -64,15 +68,17 @@ class AnomalyDetectorsManager(private val appConfig: AppConfig) {
 
             logger.info { "Setting up anomaly detector for bcRid ${blockchainToMonitor.blockchainRid.toHex()}, network ${blockchainToMonitor.evmNetworkId} and bridge contract ${blockchainToMonitor.bridgeContract}" }
 
-            val rpcUrls = appConfig.rpcUrls[blockchainToMonitor.evmNetworkId]
-            if (rpcUrls.isNullOrEmpty()) {
+            val client = web3jClientsManager.getClient(blockchainToMonitor.evmNetworkId)
+
+            val evmConfig = appConfig.evmConfig[blockchainToMonitor.evmNetworkId]
+            if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
                 logger.error { "No rpc urls set for network ${blockchainToMonitor.evmNetworkId}" }
             } else {
 
-                val web3jRequestHandler = createWeb3jRequestHandler(rpcUrls)
+                val web3jRequestHandler = createWeb3jRequestHandler(evmConfig.rpcUrls)
                 val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
 
-                val anomalyDetector = AnomalyDetector(appConfig.timeoutConfig, web3jRequestHandler, postchainClient, blockchainToMonitor.bridgeContract)
+                val anomalyDetector = AnomalyDetector(appConfig.timeoutConfig, web3jRequestHandler, client, postchainClient, blockchainToMonitor.bridgeContract)
                 anomalyDetectors[blockchainToMonitor.blockchainRid.toHex()] = anomalyDetector
                 anomalyDetector.start()
             }

@@ -28,7 +28,9 @@ import net.postchain.eif.EifSignature
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.config.EvmConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
+import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.rest.AnomalyStatus
 import net.postchain.eif.anomaly_detector.rest.statusBody
 import net.postchain.eif.contracts.TestToken
@@ -248,7 +250,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         appConfig = AppConfig(
 
                 // Evm rpc
-                mapOf(networkId to listOf(evmRpcUrl)),
+                mapOf(networkId to EvmConfig(listOf("http://localhost:5345", evmRpcUrl), Credentials.create("0000000000000000000000000000000000000000000000000000000000000000"))),
 
                 // Node and postchain
                 EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
@@ -262,7 +264,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 )
         )
 
-        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig)
+        val web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
+        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager)
         anomalyDetectorsManager.start()
     }
 
@@ -593,6 +596,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
         Awaitility.await()
                 .atMost(Duration.ONE_MINUTE)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
                 .untilAsserted {
 
                     logger.info { "Waiting for anomaly detector..." }
