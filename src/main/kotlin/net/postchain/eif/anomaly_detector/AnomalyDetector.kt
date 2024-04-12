@@ -94,8 +94,8 @@ class AnomalyDetector(
 
     // TODO remove?
     // Flow subscriptions is really nice but don't support multiple rpc for failover
-    private fun setupLogSubscription(blockNumber: BigInteger?) {
-
+//    private fun setupLogSubscription(blockNumber: BigInteger?) {
+//
 //        val eventSignatures = eventMap.keys.toTypedArray()
 //        val filter = EthFilter(
 //                DefaultBlockParameter.valueOf(blockNumber),
@@ -113,7 +113,7 @@ class AnomalyDetector(
 //            else
 //                disposable
 //        }
-    }
+//    }
 
     private fun onLog(log: Log) {
 

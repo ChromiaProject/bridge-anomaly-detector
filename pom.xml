@@ -21,13 +21,18 @@
         <revision>dev</revision>
         <postchain.version>3.15.11</postchain.version>
         <postchain.client.version>3.12.2</postchain.client.version>
-        <eif.version>0.4.3</eif.version>
+        <!--        <eif.version>0.4.3</eif.version>-->
+        <eif.version>dev</eif.version>
         <directory.chain.version>1.37.5</directory.chain.version>
         <chr.version>0.17.1</chr.version>
         <rell.version>0.13.10</rell.version>
         <rell.maven.plugin.version>0.11.9</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.build.directory}/directory-chain/chromia.yml</directory.config>
+<!--        <postchain_eif_rell.source>${project.build.directory}/postchain-eif/postchain-eif-rell/rell/src-->
+<!--        </postchain_eif_rell.source>-->
+<!--        <postchain_eif_rell.config>${project.build.directory}/postchain-eif/postchain-eif-rell/rell/chromia.yml-->
+<!--        </postchain_eif_rell.config>-->
         <web3j.version>4.11.1</web3j.version>
 
         <main-class>net.postchain.eif.anomaly_detector.MainKt</main-class>
@@ -41,9 +46,9 @@
         <gitlab.username>${CI_REGISTRY_USER}</gitlab.username>
         <!--suppress UnresolvedMavenProperty -->
         <gitlab.password>${CI_REGISTRY_PASSWORD}</gitlab.password>
-        <gitlab.registry>registry.gitlab.com/chromaway/core-tools/management-console</gitlab.registry>
+        <gitlab.registry>registry.gitlab.com/chromaway/core/bridge-anomaly-detector</gitlab.registry>
         <docker.cache>/tmp/docker-cache</docker.cache>
-        <image.name>pmc</image.name>
+        <image.name>bridge-anomaly-detector</image.name>
         <image.platforms>linux/amd64,linux/arm64</image.platforms>
 
         <!-- test -->
@@ -132,21 +137,21 @@
         </dependency>
 
         <!-- Cli -->
-<!--        <dependency>-->
-<!--            <groupId>com.github.ajalt.clikt</groupId>-->
-<!--            <artifactId>clikt-jvm</artifactId>-->
-<!--            <version>4.2.0</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>com.chromia.cli</groupId>-->
-<!--            <artifactId>chromia-cli-tools</artifactId>-->
-<!--            <version>${chr.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>net.postchain.rell</groupId>-->
-<!--            <artifactId>rell-api-base</artifactId>-->
-<!--            <version>${rell.version}</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.github.ajalt.clikt</groupId>-->
+        <!--            <artifactId>clikt-jvm</artifactId>-->
+        <!--            <version>4.2.0</version>-->
+        <!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.chromia.cli</groupId>-->
+        <!--            <artifactId>chromia-cli-tools</artifactId>-->
+        <!--            <version>${chr.version}</version>-->
+        <!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>net.postchain.rell</groupId>-->
+        <!--            <artifactId>rell-api-base</artifactId>-->
+        <!--            <version>${rell.version}</version>-->
+        <!--        </dependency>-->
 
         <!-- logging -->
         <dependency>
@@ -166,41 +171,41 @@
             <version>${web3j.version}</version>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>io.github.java-diff-utils</groupId>-->
-<!--            <artifactId>java-diff-utils</artifactId>-->
-<!--            <version>4.12</version>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>io.github.java-diff-utils</groupId>-->
+        <!--            <artifactId>java-diff-utils</artifactId>-->
+        <!--            <version>4.12</version>-->
+        <!--        </dependency>-->
 
-<!--        <dependency>-->
-<!--            <groupId>org.bitcoinj</groupId>-->
-<!--            <artifactId>bitcoinj-core</artifactId>-->
-<!--            <version>0.16.2</version>-->
-<!--            <exclusions>-->
-<!--                <exclusion>-->
-<!--                    <groupId>org.bouncycastle</groupId>-->
-<!--                    <artifactId>bcprov-jdk15to18</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>com.google.protobuf</groupId>-->
-<!--                    <artifactId>protobuf-javalite</artifactId>-->
-<!--                </exclusion>-->
-<!--                <exclusion>-->
-<!--                    <groupId>com.squareup.okhttp3</groupId>-->
-<!--                    <artifactId>okhttp</artifactId>-->
-<!--                </exclusion>-->
-<!--            </exclusions>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.bitcoinj</groupId>-->
+        <!--            <artifactId>bitcoinj-core</artifactId>-->
+        <!--            <version>0.16.2</version>-->
+        <!--            <exclusions>-->
+        <!--                <exclusion>-->
+        <!--                    <groupId>org.bouncycastle</groupId>-->
+        <!--                    <artifactId>bcprov-jdk15to18</artifactId>-->
+        <!--                </exclusion>-->
+        <!--                <exclusion>-->
+        <!--                    <groupId>com.google.protobuf</groupId>-->
+        <!--                    <artifactId>protobuf-javalite</artifactId>-->
+        <!--                </exclusion>-->
+        <!--                <exclusion>-->
+        <!--                    <groupId>com.squareup.okhttp3</groupId>-->
+        <!--                    <artifactId>okhttp</artifactId>-->
+        <!--                </exclusion>-->
+        <!--            </exclusions>-->
+        <!--        </dependency>-->
 
-<!--        <dependency>-->
-<!--            <groupId>org.apache.commons</groupId>-->
-<!--            <artifactId>commons-configuration2</artifactId>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.commons</groupId>-->
+        <!--            <artifactId>commons-configuration2</artifactId>-->
+        <!--        </dependency>-->
 
-<!--        <dependency>-->
-<!--            <groupId>com.google.code.gson</groupId>-->
-<!--            <artifactId>gson</artifactId>-->
-<!--        </dependency>-->
+        <!--        <dependency>-->
+        <!--            <groupId>com.google.code.gson</groupId>-->
+        <!--            <artifactId>gson</artifactId>-->
+        <!--        </dependency>-->
 
         <!-- Test -->
         <dependency>
@@ -258,24 +263,25 @@
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <plugins>
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-assembly-plugin</artifactId>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <id>make-archive</id>-->
-<!--                        <phase>package</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>single</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <descriptors>-->
-<!--                                <descriptor>src/assembly/targz.xml</descriptor>-->
-<!--                            </descriptors>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
+            <!-- TODO needed? -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>make-archive</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/targz.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
@@ -287,43 +293,29 @@
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
                 <version>${rell.maven.plugin.version}</version>
-                <configuration>
-                    <source>${directory.source}</source>
-                </configuration>
                 <executions>
                     <execution>
-                        <id>rell-install</id>
+                        <id>rell-install-d1</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>rell-install</goal>
                         </goals>
                         <configuration>
+                            <source>${directory.source}</source>
                             <configPath>${directory.config}</configPath>
                         </configuration>
                     </execution>
-<!--                    <execution>-->
-<!--                        <id>rell-client-gen</id>-->
-<!--                        <phase>generate-resources</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>rell-generate-client</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <packageName>net.postchain.chain0</packageName>-->
-<!--                            <mainModule>management_chain_mainnet</mainModule>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
-<!--                    <execution>-->
-<!--                        <id>rell-anchoring-client</id>-->
-<!--                        <phase>generate-resources</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>rell-generate-client</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <packageName>net.postchain.anchoring</packageName>-->
-<!--                            <mainModule>anchoring_chain_common</mainModule>-->
-<!--                            <target>${project.build.directory}/generated-sources/rell-client/anchoring</target>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
+                    <!--                    <execution>-->
+                    <!--                        <id>rell-install-eif</id>-->
+                    <!--                        <phase>generate-resources</phase>-->
+                    <!--                        <goals>-->
+                    <!--                            <goal>rell-install</goal>-->
+                    <!--                        </goals>-->
+                    <!--                        <configuration>-->
+                    <!--                            <source>${postchain_eif_rell.source}</source>-->
+                    <!--                            <configPath>${postchain_eif_rell.config}</configPath>-->
+                    <!--                        </configuration>-->
+                    <!--                    </execution>-->
                     <execution>
                         <id>rell-economy-chain-client</id>
                         <phase>generate-resources</phase>
@@ -331,24 +323,25 @@
                             <goal>rell-generate-client</goal>
                         </goals>
                         <configuration>
+                            <source>${directory.source}</source>
                             <packageName>net.postchain.economy</packageName>
                             <mainModule>economy_chain</mainModule>
                             <target>${project.build.directory}/generated-sources/rell-client/economy</target>
                         </configuration>
                     </execution>
-<!--                    <execution>-->
-<!--                        <id>compile-d1</id>-->
-<!--                        <phase>generate-test-resources</phase>-->
-<!--                        <goals>-->
-<!--                            <goal>rell-compile</goal>-->
-<!--                        </goals>-->
-<!--                        <configuration>-->
-<!--                            <rootFolder>${project.basedir}</rootFolder>-->
-<!--                            <configFile>src/test/resources/directory1.yml</configFile>-->
-<!--                            <source>${directory.source}</source>-->
-<!--                            <target>target/test-classes/directory1deployment</target>-->
-<!--                        </configuration>-->
-<!--                    </execution>-->
+                    <!--                    <execution>-->
+                    <!--                        <id>rell-transaction-submitter-chain-client</id>-->
+                    <!--                        <phase>generate-resources</phase>-->
+                    <!--                        <goals>-->
+                    <!--                            <goal>rell-generate-client</goal>-->
+                    <!--                        </goals>-->
+                    <!--                        <configuration>-->
+                    <!--                            <source>${postchain_eif_rell.source}</source>-->
+                    <!--                            <packageName>net.postchain.eif.transaction</packageName>-->
+                    <!--                            <mainModule>transaction_submitter</mainModule>-->
+                    <!--                            <target>${project.build.directory}/generated-sources/rell-client/eif/transaction</target>-->
+                    <!--                        </configuration>-->
+                    <!--                    </execution>-->
                 </executions>
             </plugin>
             <plugin>
@@ -363,7 +356,6 @@
                             <goal>compile</goal>
                         </goals>
                     </execution>
-
                     <execution>
                         <id>test-compile</id>
                         <goals>
@@ -400,6 +392,7 @@
                 </configuration>
             </plugin>
 <!--            <plugin>-->
+<!--                &lt;!&ndash; TODO needed? &ndash;&gt;-->
 <!--                <groupId>org.codehaus.mojo</groupId>-->
 <!--                <artifactId>flatten-maven-plugin</artifactId>-->
 <!--                <configuration>-->
@@ -428,7 +421,8 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <environmentVariables>
-                        <DIST_EXECUTABLE>${project.build.directory}/${project.artifactId}-${project.version}-dist/management-console/bin/pmc
+                        <DIST_EXECUTABLE>
+                            ${project.build.directory}/${project.artifactId}-${project.version}-dist/management-console/bin/bad
                         </DIST_EXECUTABLE>
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
                     </environmentVariables>
@@ -473,25 +467,16 @@
                     <contract>
                         <includes>
                             <include>TokenBridge</include>
-                                                        <include>TestToken</include>
-                                                        <include>Validator</include>
-                            <!--                            <include>Anchoring</include>-->
-                            <!--                            <include>DirectoryChainValidator</include>-->
-                            <!--                            <include>ManagedValidator</include>-->
+                            <include>TestToken</include>
+                            <include>Validator</include>
                         </includes>
                     </contract>
-<!--                    <pathPrefixes>-->
-<!--                        <pathPrefix>@openzeppelin=../node_modules/@openzeppelin</pathPrefix>-->
-<!--                    </pathPrefixes>-->
                     <abiSourceFiles>
                         <directory>${project.build.directory}/postchain-eif-contracts/abi</directory>
                         <includes>
                             <include>**/TokenBridge.json</include>
-                                                        <include>**/TestToken.json</include>
-                                                        <include>**/Validator.json</include>
-                            <!--                            <include>**/Anchoring.json</include>-->
-                            <!--                            <include>**/DirectoryChainValidator.json</include>-->
-                            <!--                            <include>**/ManagedValidator.json</include>-->
+                            <include>**/TestToken.json</include>
+                            <include>**/Validator.json</include>
                         </includes>
                     </abiSourceFiles>
                     <outputDirectory>
@@ -557,14 +542,16 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.1@sha256:def7ecec42cdc4545be824e539bc5802f89a3eff618b9194a6c02e2d28910f4a</image>
+                            <image>
+                                registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.1@sha256:def7ecec42cdc4545be824e539bc5802f89a3eff618b9194a6c02e2d28910f4a
+                            </image>
                         </from>
                         <container>
                             <entrypoint>
-                                <args>/usr/bin/pmc</args>
+                                <args>/usr/bin/bad</args>
                             </entrypoint>
-                            <appRoot>/opt/chromaway/postchain</appRoot>
-                            <workingDirectory>/opt/chromaway/postchain</workingDirectory>
+                            <appRoot>/opt/chromaway/bad</appRoot>
+                            <workingDirectory>/opt/chromaway/bad</workingDirectory>
                             <mainClass>${main-class}</mainClass>
                             <creationTime>${git.commit.time}</creationTime>
                             <filesModificationTime>${git.commit.time}</filesModificationTime>
@@ -572,7 +559,7 @@
                         <extraDirectories>
                             <permissions>
                                 <permission>
-                                    <file>/usr/bin/pmc</file>
+                                    <file>/usr/bin/bad</file>
                                     <mode>755</mode>
                                 </permission>
                             </permissions>
@@ -603,7 +590,9 @@
                         <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
                         <yarnAuditAnalyzerEnabled>false</yarnAuditAnalyzerEnabled>
                         <suppressionFiles>
-                            <suppressionFile>https://gitlab.com/chromaway/chromia-parent/-/raw/dev/common-dependencies-suppression.xml?ref_type=heads</suppressionFile>
+                            <suppressionFile>
+                                https://gitlab.com/chromaway/chromia-parent/-/raw/dev/common-dependencies-suppression.xml?ref_type=heads
+                            </suppressionFile>
                             <suppressionFile>dependencies-suppression.xml</suppressionFile>
                         </suppressionFiles>
                     </configuration>
@@ -651,12 +640,27 @@
                                     <goal>checkout</goal>
                                 </goals>
                                 <configuration>
-                                    <connectionUrl>scm:git:https://gitlab.com/chromaway/core/directory-chain.git</connectionUrl>
+                                    <connectionUrl>scm:git:https://gitlab.com/chromaway/core/directory-chain.git
+                                    </connectionUrl>
                                     <checkoutDirectory>${project.build.directory}/directory-chain</checkoutDirectory>
                                     <scmVersion>${directory.chain.version}</scmVersion>
                                     <scmVersionType>tag</scmVersionType>
                                 </configuration>
                             </execution>
+                            <!--                            <execution>-->
+                            <!--                                <id>postchain-eif-resources</id>-->
+                            <!--                                <phase>generate-sources</phase>-->
+                            <!--                                <goals>-->
+                            <!--                                    <goal>checkout</goal>-->
+                            <!--                                </goals>-->
+                            <!--                                <configuration>-->
+                            <!--                                    <connectionUrl>scm:git:https://gitlab.com/chromaway/postchain-eif.git-->
+                            <!--                                    </connectionUrl>-->
+                            <!--                                    <checkoutDirectory>${project.build.directory}/postchain-eif</checkoutDirectory>-->
+                            <!--                                    <scmVersion>${eif.version}</scmVersion>-->
+                            <!--                                    <scmVersionType>tag</scmVersionType>-->
+                            <!--                                </configuration>-->
+                            <!--                            </execution>-->
                         </executions>
                     </plugin>
                 </plugins>
@@ -672,6 +676,10 @@
             <properties>
                 <directory.source>${project.basedir}/../directory-chain/src</directory.source>
                 <directory.config>${project.basedir}/../directory-chain/chromia.yml</directory.config>
+<!--                <postchain_eif_rell.source>${project.basedir}/../postchain-eif/postchain-eif-rell/rell/src-->
+<!--                </postchain_eif_rell.source>-->
+<!--                <postchain_eif_rell.config>${project.basedir}/../postchain-eif/postchain-eif-rell/rell/chromia.yml-->
+<!--                </postchain_eif_rell.config>-->
             </properties>
         </profile>
         <profile>
