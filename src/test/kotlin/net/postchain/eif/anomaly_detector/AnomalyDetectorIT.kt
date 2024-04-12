@@ -256,7 +256,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 // Evm rpc
                 mapOf(networkId to EvmConfig(
                         listOf("http://localhost:1", evmRpcUrl),
-                        Credentials.create("0000000000000000000000000000000000000000000000000000000000000000"),
+                        Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
                         LogProcessorConfig(2, 10, 50)
                 )),
 
@@ -605,7 +605,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         assertThat(bridge.paused().send().value).isFalse()
 
         // Pause it
-        val pauseResponse = bridge.pause(node0EvmAddress).send()
+        val pauseResponse = bridge.pause().send()
         assertThat(pauseResponse.isStatusOK).isTrue()
 
         // Verify it being paused
