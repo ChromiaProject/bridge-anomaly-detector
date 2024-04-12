@@ -21,7 +21,6 @@ import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.anomaly_detector.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
-import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
 
 class AnomalyDetectorsManager(
@@ -42,7 +41,7 @@ class AnomalyDetectorsManager(
                     while (isActive) {
                         try {
                             setupAndStopDetectors()
-                            delay(TimeUnit.SECONDS.toMillis(appConfig.bridgeChainRefreshIntervalSeconds))
+                            delay(appConfig.bridgeChainRefreshInterval)
                         } catch (e: CancellationException) {
                             break
                         }
@@ -101,6 +100,11 @@ class AnomalyDetectorsManager(
 
             detector.stop()
             anomalyDetectors.remove(bcRid)
+
+            // Close client if this was the last detector for this network
+            if (anomalyDetectors.values.none { it.networkId == detector.networkId }) {
+                web3jClientsManager.closeClient(detector.networkId)
+            }
         }
     }
 
@@ -120,16 +124,16 @@ class AnomalyDetectorsManager(
 
         // TODO either EC or TXSC
 
-        val postchainClient = createPostchainClient(appConfig.nodeUrl, appConfig.bcRid.hexStringToByteArray())
+        val postchainClient = createPostchainClient(appConfig.nodeUrl, appConfig.blockchainRid.hexStringToByteArray())
         return postchainClient.getBlockchainsWithBridgeAndAnomalyDetection()
                 .map { Blockchain(it.blockchainRid.data, it.evmNetworkId, it.bridgeContract) }
     }
 
-    private fun createPostchainClient(nodeUrl: EndpointPool, bcRid: ByteArray) =
+    private fun createPostchainClient(nodeUrl: String, bcRid: ByteArray) =
             PostchainClientProviderImpl().createClient(
                     PostchainClientConfig(
                             BlockchainRid(bcRid),
-                            nodeUrl,
+                            EndpointPool.singleUrl(nodeUrl),
                             listOf()
                     ))
 

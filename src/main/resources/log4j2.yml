@@ -1,0 +1,21 @@
+Configuration:
+  name: Default
+  properties:
+    property:
+      - name: pattern
+        value: "%d{yyyy-MM-dd HH:mm:ss.SSS} +++ %notEmpty{bcRid=%X{bcRid}} %msg +++%n"
+
+  Appenders:
+    Console:
+      - name: ConsoleAppender
+        target: SYSTEM_OUT
+        PatternLayout:
+          pattern: ${pattern}
+
+  Loggers:
+
+    Root:
+      level: info
+      additivity: false
+      AppenderRef:
+        - ref: ConsoleAppender

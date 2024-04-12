@@ -13,12 +13,8 @@ import net.postchain.eif.anomaly_detector.evm.EvmLogProcessor
 import net.postchain.eif.anomaly_detector.evm.Web3jClient
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.contracts.TokenBridge
-import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
-import org.web3j.protocol.core.DefaultBlockParameter
-import org.web3j.protocol.core.DefaultBlockParameterName
-import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.methods.response.Log
 import org.web3j.tx.Contract
 import java.math.BigInteger
@@ -64,7 +60,6 @@ class AnomalyDetector(
             TokenBridge.UNPAUSED_EVENT,
             TokenBridge.WITHDRAWREQUEST_EVENT
     )
-    private val eventMap = eventsToRead.associateBy(EventEncoder::encode)
     private lateinit var evmLogProcessor: EvmLogProcessor
 
     fun start() {
@@ -97,34 +92,37 @@ class AnomalyDetector(
         }.value
     }
 
+    // TODO remove?
     // Flow subscriptions is really nice but don't support multiple rpc for failover
     private fun setupLogSubscription(blockNumber: BigInteger?) {
 
-        val eventSignatures = eventMap.keys.toTypedArray()
-        val filter = EthFilter(
-                DefaultBlockParameter.valueOf(blockNumber),
-                DefaultBlockParameterName.LATEST,
-                tokenBridgeContractAddresses)
-                .addOptionalTopics(*eventSignatures)
-
-        logSubscription = web3jClient.withAnyClient {
-            val disposable = it.ethLogFlowable(filter).subscribe(::onLog) {
-                logError { "Error in log subscription: $it" }
-                // TODO: how to deal with this? Reconnect?
-            }
-            if (disposable.isDisposed)
-                null
-            else
-                disposable
-        }
+//        val eventSignatures = eventMap.keys.toTypedArray()
+//        val filter = EthFilter(
+//                DefaultBlockParameter.valueOf(blockNumber),
+//                DefaultBlockParameterName.LATEST,
+//                tokenBridgeContractAddresses)
+//                .addOptionalTopics(*eventSignatures)
+//
+//        logSubscription = web3jClient.withAnyClient {
+//            val disposable = it.ethLogFlowable(filter).subscribe(::onLog) {
+//                logError { "Error in log subscription: $it" }
+//                // TODO: how to deal with this? Reconnect?
+//            }
+//            if (disposable.isDisposed)
+//                null
+//            else
+//                disposable
+//        }
     }
 
     private fun onLog(log: Log) {
 
-        val matchingEvent = eventMap[log.topics[0]] ?: throw ProgrammerMistake("No matching event for log: $log")
+        val event = evmLogProcessor.getEventType(log)
         lastBlockNumberProcessed = log.blockNumber
 
-        when (matchingEvent) {
+        logger.info { "Received log event $event" }
+
+        when (event) {
             TokenBridge.PAUSED_EVENT -> bridgePaused()
             TokenBridge.UNPAUSED_EVENT -> bridgeUnpaused()
             TokenBridge.WITHDRAWREQUEST_EVENT -> withdrawRequestEvent(log)

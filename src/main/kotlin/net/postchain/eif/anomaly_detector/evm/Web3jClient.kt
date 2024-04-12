@@ -71,6 +71,10 @@ class Web3jClient(
         throw ProgrammerMistake("Failed to call all rpc endpoints for network $networkId")
     }
 
+    fun close() {
+        web3jClients.forEach(Web3j::shutdown)
+    }
+
     private fun getTokenBridge(tokenBridgeContractAddresses: String): List<TokenBridge> {
         return tokenBridgeMap.getOrPut(tokenBridgeContractAddresses) {
             web3jClients.map {

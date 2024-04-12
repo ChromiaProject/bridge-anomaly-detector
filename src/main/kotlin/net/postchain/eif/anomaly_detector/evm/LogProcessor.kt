@@ -10,6 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.slf4j.MDCContext
 import mu.KLogging
+import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Event
@@ -105,5 +106,9 @@ class EvmLogProcessor(
 
     fun shutdown() {
         job.cancel()
+    }
+
+    fun getEventType(log: Log): Any {
+        return eventMap[log.topics[0]] ?: throw ProgrammerMistake("No matching event for log: $log")
     }
 }
