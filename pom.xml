@@ -21,8 +21,7 @@
         <revision>dev</revision>
         <postchain.version>3.15.11</postchain.version>
         <postchain.client.version>3.12.2</postchain.client.version>
-<!--        <eif.version>0.3.8</eif.version>-->
-        <eif.version>dev</eif.version>
+        <eif.version>0.4.3</eif.version>
         <directory.chain.version>1.37.5</directory.chain.version>
         <chr.version>0.17.1</chr.version>
         <rell.version>0.13.10</rell.version>
@@ -810,6 +809,7 @@
     </profiles>
 
     <repositories>
+        <!-- TODO remove not needed -->
         <repository>
             <id>chromia-parent</id>
             <name>Chromia parent GitLab Registry</name>
@@ -837,6 +837,11 @@
             <id>Rell</id>
             <name>Rell Runtime Registry</name>
             <url>https://gitlab.com/api/v4/projects/32802097/packages/maven</url>
+        </repository>
+        <repository>
+            <id>postchain-eif</id>
+            <name>Postchain EIF</name>
+            <url>https://gitlab.com/api/v4/projects/36768178/packages/maven</url>
         </repository>
 
         <!-- Needed for web3j -->
