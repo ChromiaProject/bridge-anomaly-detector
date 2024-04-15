@@ -10,6 +10,20 @@ include:
       - templates/container-dependency-scanning.yml
 
 .setup:
+  tags:
+    - saas-linux-large-amd64
+  before_script:
+    - docker run
+      --detach
+      --name postgres
+      --env POSTGRES_PASSWORD=postchain
+      --env POSTGRES_USER=postchain
+      --env PGDATA=/pgtmpfs
+      --tmpfs=/pgtmpfs:size=1000m
+      --publish 5432:5432
+      postgres:14.9-alpine3.18@sha256:8da7e8e94d4bcc28da8f222a4e259b6f7df2dc62640d104f81762678dc1e2200
+    - export POSTCHAIN_TEST_MASTER_HOST=$(hostname -I | awk '{print $1}') # Finds the IP of the build job container
+    - mkdir -p $TEST_MOUNT_DIRECTORY
   # Necessary to be able to launch PostgreSQL in Docker manually. PostgreSQL is
   # launched in Docker manually (and not as a service, here) because then we can
   # use a tmpfs (in-memory disk) for the data, making it faster.
