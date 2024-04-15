@@ -21,9 +21,8 @@
         <revision>dev</revision>
         <postchain.version>3.15.11</postchain.version>
         <postchain.client.version>3.12.2</postchain.client.version>
-        <!--        <eif.version>0.4.3</eif.version>-->
-        <eif.version>dev</eif.version>
-        <directory.chain.version>1.37.5</directory.chain.version>
+        <eif.version>0.4.4</eif.version>
+        <directory.chain.version>1.41.0</directory.chain.version>
         <chr.version>0.17.1</chr.version>
         <rell.version>0.13.10</rell.version>
         <rell.maven.plugin.version>0.11.9</rell.maven.plugin.version>

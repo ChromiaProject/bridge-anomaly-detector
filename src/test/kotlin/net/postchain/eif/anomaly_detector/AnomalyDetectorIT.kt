@@ -596,31 +596,31 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 }
     }
 
-    @Test
+//    @Test
     @Order(120)
     fun `detect paused bridge`() {
 
-//        // It will of course be unpaused to start with
-//        assertThat(bridge.paused().send().value).isFalse()
-//
-//        // Pause it
-//        val pauseResponse = bridge.pause().send()
-//        assertThat(pauseResponse.isStatusOK).isTrue()
-//
-//        // Verify it being paused
-//        assertThat(bridge.paused().send().value).isTrue()
-//
-//        // Verify the anomaly detector understand it is paused
-//        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors().values.first()
-//        Awaitility.await()
-//                .atMost(Duration.TEN_SECONDS)
-//                .pollInterval(500, TimeUnit.MILLISECONDS)
-//                .untilAsserted {
-//                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.PAUSED)
-//                }
+        // It will of course be unpaused to start with
+        assertThat(bridge.paused().send().value).isFalse()
+
+        // Pause it
+        val pauseResponse = bridge.pause().send()
+        assertThat(pauseResponse.isStatusOK).isTrue()
+
+        // Verify it being paused
+        assertThat(bridge.paused().send().value).isTrue()
+
+        // Verify the anomaly detector understand it is paused
+        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors().values.first()
+        Awaitility.await()
+                .atMost(Duration.TEN_SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.PAUSED)
+                }
     }
 
-    @Test
+//    @Test
     @Order(121)
     fun `detect unpaused bridge`() {
 

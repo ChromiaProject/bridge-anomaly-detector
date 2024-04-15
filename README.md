@@ -19,7 +19,12 @@ TODO
 
 `mvn clean install -DskipTests -Dlocal --activate-profiles docker`
 
-`docker run --rm -it --volume $(pwd)/doc/example.properties:/opt/chromaway/bad/config.properties --volume $(pwd)/../directory1-example/config/config.1.properties:/opt/chromaway/directory1-example/config/config.0.properties bridge-anomaly-detector config.properties`
+```
+docker run --rm -it \
+    --volume $(pwd)/doc/example.properties:/opt/chromaway/bad/config.properties \
+    --volume $(pwd)/../directory1-example/config/config.1.properties:/opt/chromaway/directory1-example/config/config.0.properties bridge-anomaly-detector \
+    config.properties
+```
 
 
 ## Copyright & License information
