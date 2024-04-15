@@ -32,7 +32,6 @@ fun startRestApi(restApiConfig: RestApiConfig, anomalyDetectorsManager: AnomalyD
 
     val restApi: RestApi? = with(restApiConfig) {
         if (port != -1) {
-            net.postchain.client.impl.PostchainClientImpl.logger.info { "Starting REST API on port $port and path $basePath/" }
             try {
                 RestApi(
                         listenPort = port,

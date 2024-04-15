@@ -18,7 +18,7 @@ class AppConfig (
         // Postchain
         val nodeUrl: String,
         val blockchainRid: String,
-        val bridgeChainRefreshInterval: Long = TimeUnit.MINUTES.toSeconds(30), // Change to MS for tests?
+        val bridgeChainRefreshInterval: Long = TimeUnit.MINUTES.toMillis(20),
 
         // Anomaly detector
         val timeoutConfig: TimeoutConfig,
@@ -35,8 +35,8 @@ class AppConfig (
 
             // EVM
             val params = Parameters().properties()
-                    .setFile(configFile)
                     .setListDelimiterHandler(DefaultListDelimiterHandler(','))
+                    .setFile(configFile)
 
             val config = FileBasedConfigurationBuilder(PropertiesConfiguration::class.java)
                     .configure(params)

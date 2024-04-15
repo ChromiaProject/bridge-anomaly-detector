@@ -41,10 +41,13 @@ class AnomalyDetectorsManager(
                     while (isActive) {
                         try {
                             setupAndStopDetectors()
-                            delay(appConfig.bridgeChainRefreshInterval)
                         } catch (e: CancellationException) {
                             break
+                        } catch (e: Exception) {
+                            logger.error(e) { "Failed to process start/stop bridge anomaly detectors: ${e.message}" }
                         }
+
+                        delay(appConfig.bridgeChainRefreshInterval)
                     }
                 }
     }
@@ -52,6 +55,8 @@ class AnomalyDetectorsManager(
     fun getAnomalyDetectors(): Map<String, AnomalyDetector> = anomalyDetectors.toImmutableMap()
 
     private fun setupAndStopDetectors() {
+
+        logger.debug { "Read bridges to monitor from blockchain" }
 
         val blockchainsToMonitor = getBlockchainsToMonitor(appConfig)
         val detectorsToStop = getBlockchainsToStop(blockchainsToMonitor)
@@ -120,10 +125,6 @@ class AnomalyDetectorsManager(
     }
 
     private fun getBlockchainsToMonitor(appConfig: AppConfig): List<Blockchain> {
-
-
-        // TODO either EC or TXSC
-
         val postchainClient = createPostchainClient(appConfig.nodeUrl, appConfig.blockchainRid.hexStringToByteArray())
         return postchainClient.getBlockchainsWithBridgeAndAnomalyDetection()
                 .map { Blockchain(it.blockchainRid.data, it.evmNetworkId, it.bridgeContract) }

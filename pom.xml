@@ -28,11 +28,9 @@
         <rell.maven.plugin.version>0.11.9</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.build.directory}/directory-chain/chromia.yml</directory.config>
-<!--        <postchain_eif_rell.source>${project.build.directory}/postchain-eif/postchain-eif-rell/rell/src-->
-<!--        </postchain_eif_rell.source>-->
-<!--        <postchain_eif_rell.config>${project.build.directory}/postchain-eif/postchain-eif-rell/rell/chromia.yml-->
-<!--        </postchain_eif_rell.config>-->
         <web3j.version>4.11.1</web3j.version>
+        <log4j.version>2.23.1</log4j.version>
+        <jackson.version>2.17.0</jackson.version>
 
         <main-class>net.postchain.eif.anomaly_detector.MainKt</main-class>
         <maven.compiler.source>17</maven.compiler.source>
@@ -134,34 +132,27 @@
             <groupId>org.http4k</groupId>
             <artifactId>http4k-metrics-micrometer</artifactId>
         </dependency>
-
-        <!-- Cli -->
-        <!--        <dependency>-->
-        <!--            <groupId>com.github.ajalt.clikt</groupId>-->
-        <!--            <artifactId>clikt-jvm</artifactId>-->
-        <!--            <version>4.2.0</version>-->
-        <!--        </dependency>-->
-        <!--        <dependency>-->
-        <!--            <groupId>com.chromia.cli</groupId>-->
-        <!--            <artifactId>chromia-cli-tools</artifactId>-->
-        <!--            <version>${chr.version}</version>-->
-        <!--        </dependency>-->
-        <!--        <dependency>-->
-        <!--            <groupId>net.postchain.rell</groupId>-->
-        <!--            <artifactId>rell-api-base</artifactId>-->
-        <!--            <version>${rell.version}</version>-->
-        <!--        </dependency>-->
-
         <!-- logging -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-slf4j-impl</artifactId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
         </dependency>
-
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <!-- To be able to use YAML log4j files -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
@@ -169,42 +160,6 @@
             <artifactId>core</artifactId>
             <version>${web3j.version}</version>
         </dependency>
-
-        <!--        <dependency>-->
-        <!--            <groupId>io.github.java-diff-utils</groupId>-->
-        <!--            <artifactId>java-diff-utils</artifactId>-->
-        <!--            <version>4.12</version>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>org.bitcoinj</groupId>-->
-        <!--            <artifactId>bitcoinj-core</artifactId>-->
-        <!--            <version>0.16.2</version>-->
-        <!--            <exclusions>-->
-        <!--                <exclusion>-->
-        <!--                    <groupId>org.bouncycastle</groupId>-->
-        <!--                    <artifactId>bcprov-jdk15to18</artifactId>-->
-        <!--                </exclusion>-->
-        <!--                <exclusion>-->
-        <!--                    <groupId>com.google.protobuf</groupId>-->
-        <!--                    <artifactId>protobuf-javalite</artifactId>-->
-        <!--                </exclusion>-->
-        <!--                <exclusion>-->
-        <!--                    <groupId>com.squareup.okhttp3</groupId>-->
-        <!--                    <artifactId>okhttp</artifactId>-->
-        <!--                </exclusion>-->
-        <!--            </exclusions>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>org.apache.commons</groupId>-->
-        <!--            <artifactId>commons-configuration2</artifactId>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>com.google.code.gson</groupId>-->
-        <!--            <artifactId>gson</artifactId>-->
-        <!--        </dependency>-->
 
         <!-- Test -->
         <dependency>
@@ -262,7 +217,6 @@
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <plugins>
-            <!-- TODO needed? -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -304,17 +258,6 @@
                             <configPath>${directory.config}</configPath>
                         </configuration>
                     </execution>
-                    <!--                    <execution>-->
-                    <!--                        <id>rell-install-eif</id>-->
-                    <!--                        <phase>generate-resources</phase>-->
-                    <!--                        <goals>-->
-                    <!--                            <goal>rell-install</goal>-->
-                    <!--                        </goals>-->
-                    <!--                        <configuration>-->
-                    <!--                            <source>${postchain_eif_rell.source}</source>-->
-                    <!--                            <configPath>${postchain_eif_rell.config}</configPath>-->
-                    <!--                        </configuration>-->
-                    <!--                    </execution>-->
                     <execution>
                         <id>rell-economy-chain-client</id>
                         <phase>generate-resources</phase>
@@ -328,19 +271,6 @@
                             <target>${project.build.directory}/generated-sources/rell-client/economy</target>
                         </configuration>
                     </execution>
-                    <!--                    <execution>-->
-                    <!--                        <id>rell-transaction-submitter-chain-client</id>-->
-                    <!--                        <phase>generate-resources</phase>-->
-                    <!--                        <goals>-->
-                    <!--                            <goal>rell-generate-client</goal>-->
-                    <!--                        </goals>-->
-                    <!--                        <configuration>-->
-                    <!--                            <source>${postchain_eif_rell.source}</source>-->
-                    <!--                            <packageName>net.postchain.eif.transaction</packageName>-->
-                    <!--                            <mainModule>transaction_submitter</mainModule>-->
-                    <!--                            <target>${project.build.directory}/generated-sources/rell-client/eif/transaction</target>-->
-                    <!--                        </configuration>-->
-                    <!--                    </execution>-->
                 </executions>
             </plugin>
             <plugin>
@@ -512,7 +442,7 @@
                 <plugin>
                     <groupId>com.google.cloud.tools</groupId>
                     <artifactId>jib-maven-plugin</artifactId>
-                    <version>3.3.2</version>
+                    <version>3.4.2</version>
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
@@ -621,20 +551,6 @@
                                     <scmVersionType>tag</scmVersionType>
                                 </configuration>
                             </execution>
-                            <!--                            <execution>-->
-                            <!--                                <id>postchain-eif-resources</id>-->
-                            <!--                                <phase>generate-sources</phase>-->
-                            <!--                                <goals>-->
-                            <!--                                    <goal>checkout</goal>-->
-                            <!--                                </goals>-->
-                            <!--                                <configuration>-->
-                            <!--                                    <connectionUrl>scm:git:https://gitlab.com/chromaway/postchain-eif.git-->
-                            <!--                                    </connectionUrl>-->
-                            <!--                                    <checkoutDirectory>${project.build.directory}/postchain-eif</checkoutDirectory>-->
-                            <!--                                    <scmVersion>${eif.version}</scmVersion>-->
-                            <!--                                    <scmVersionType>tag</scmVersionType>-->
-                            <!--                                </configuration>-->
-                            <!--                            </execution>-->
                         </executions>
                     </plugin>
                 </plugins>
@@ -650,10 +566,6 @@
             <properties>
                 <directory.source>${project.basedir}/../directory-chain/src</directory.source>
                 <directory.config>${project.basedir}/../directory-chain/chromia.yml</directory.config>
-<!--                <postchain_eif_rell.source>${project.basedir}/../postchain-eif/postchain-eif-rell/rell/src-->
-<!--                </postchain_eif_rell.source>-->
-<!--                <postchain_eif_rell.config>${project.basedir}/../postchain-eif/postchain-eif-rell/rell/chromia.yml-->
-<!--                </postchain_eif_rell.config>-->
             </properties>
         </profile>
         <profile>
@@ -791,7 +703,6 @@
     </profiles>
 
     <repositories>
-        <!-- TODO remove not needed -->
         <repository>
             <id>chromia-parent</id>
             <name>Chromia parent GitLab Registry</name>
@@ -806,14 +717,6 @@
             <id>postchain</id>
             <name>Postchain GitLab Registry</name>
             <url>https://gitlab.com/api/v4/projects/32294340/packages/maven</url>
-        </repository>
-        <repository>
-            <id>Postchain Chromia</id>
-            <url>https://gitlab.com/api/v4/projects/33481005/packages/maven</url>
-        </repository>
-        <repository>
-            <id>Chromia CLI</id>
-            <url>https://gitlab.com/api/v4/projects/39844192/packages/maven</url>
         </repository>
         <repository>
             <id>Rell</id>

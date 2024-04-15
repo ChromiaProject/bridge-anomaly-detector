@@ -70,7 +70,6 @@ class AnomalyDetector(
 
         anomalyDetectorStatus = setInitialDetectorStatus()
 
-//        setupLogSubscription(currentBlockNumber)
         setupLogProcessorJob(currentBlockNumber.toLong())
     }
 
@@ -92,35 +91,12 @@ class AnomalyDetector(
         }.value
     }
 
-    // TODO remove?
-    // Flow subscriptions is really nice but don't support multiple rpc for failover
-//    private fun setupLogSubscription(blockNumber: BigInteger?) {
-//
-//        val eventSignatures = eventMap.keys.toTypedArray()
-//        val filter = EthFilter(
-//                DefaultBlockParameter.valueOf(blockNumber),
-//                DefaultBlockParameterName.LATEST,
-//                tokenBridgeContractAddresses)
-//                .addOptionalTopics(*eventSignatures)
-//
-//        logSubscription = web3jClient.withAnyClient {
-//            val disposable = it.ethLogFlowable(filter).subscribe(::onLog) {
-//                logError { "Error in log subscription: $it" }
-//                // TODO: how to deal with this? Reconnect?
-//            }
-//            if (disposable.isDisposed)
-//                null
-//            else
-//                disposable
-//        }
-//    }
-
     private fun onLog(log: Log) {
 
         val event = evmLogProcessor.getEventType(log)
         lastBlockNumberProcessed = log.blockNumber
 
-        logger.info { "Received log event $event" }
+        logger.info { "Received log event $log." }
 
         when (event) {
             TokenBridge.PAUSED_EVENT -> bridgePaused()
@@ -131,7 +107,6 @@ class AnomalyDetector(
 
     private fun withdrawRequestEvent(log: Log) {
 
-        logInfo { "Log: ${log.logIndex}" }
         logsProcessed++
 
         val parameters = Contract.staticExtractEventParameters(TokenBridge.WITHDRAWREQUEST_EVENT, log)
@@ -192,6 +167,8 @@ class AnomalyDetector(
         if (logVerification.brid.contentEquals(blockAtHeight.rid.data)) {
 
             logsVerified++
+
+            logInfo { "Verified transaction on height ${logVerification.height} and brid ${logVerification.brid.toHex()}" }
 
         } else {
 
