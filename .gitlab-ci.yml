@@ -32,9 +32,10 @@ include:
       alias: docker
       command: [ "--tls=false" , "--experimental" ]
   artifacts:
-    when: on_failure
+    when: always
     paths:
       - "**/*.log"
+      - $JACOCO_REPORT_DIR/*
     reports:
       junit:
         - "**/target/surefire-reports/TEST-*.xml"
@@ -67,32 +68,6 @@ deploy:
       --activate-profiles ci,docker,docker-push
       deploy
 
-trigger-homebrew-release:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^[0-9]+\.[0-9]+\.[0-9]+$/
-  variables:
-    VERSION: $CI_COMMIT_TAG
-    FORMULA: bad
-  trigger:
-    project: chromaway/core-tools/homebrew-chromia
-    strategy: depend
-
-trigger-apt-repo-release:
-  stage: release
-  rules:
-    - if: $CI_COMMIT_TAG =~ /^[0-9]+\.[0-9]+\.[0-9]+$/
-  variables:
-    VERSION: $CI_COMMIT_TAG
-    TOOL: bad
-  script: |
-    curl -L \
-      --user "$JENKINS_USER:$JENKINS_USER_TOKEN" \
-      --form TOOL=$TOOL \
-      --form VERSION=$VERSION \
-      --request POST \
-      https://jenkins.infra.chromia.dev/job/apt-repository-chromia/buildWithParameters?token=$JENKINS_APT_JOB_TOKEN
-
 build:
   extends:
     - .setup
@@ -117,7 +92,7 @@ dependency-check:
 
 container-scanning:
   variables:
-    REGISTRY: registry.gitlab.com/chromaway/core-tools/management-console
+    REGISTRY: registry.gitlab.com/chromaway/core/bridge-anomaly-detector
   parallel:
     matrix:
       - IMAGE: [ bad ]
@@ -142,6 +117,7 @@ variables:
   # when running from the command line.
   # `installAtEnd` and `deployAtEnd` are only effective with recent version of the corresponding plugins.
   MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true -s .gitlab-settings.xml -U"
+  POSTCHAIN_DB_URL: jdbc:postgresql://docker/postchain
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
   DOCKER_DRIVER: overlay2

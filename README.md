@@ -1,4 +1,5 @@
 # TODO
+
 - start only if node has built a block - if possible.
 - add randomness +- 1-5 minutes to reduce risk of sending pause tx at the same time?
 - pause call
@@ -10,10 +11,10 @@
 - This readme - short description and usage
 - Integration test in postchain-chromia?
 
-
 # Bridge anomaly detector
 
-TODO
+Application to monitor bridges EVM `withdraw requests` and verify them again postchain instance. If an anomaly is found
+it will pause the bridge contract.
 
 # Build and use
 
@@ -26,7 +27,6 @@ docker run --rm -it \
     config.properties
 ```
 
-
 ## Copyright & License information
 
 Copyright (c) 2017–2024 ChromaWay AB. All rights reserved.
@@ -38,5 +38,5 @@ See file LICENSE for details.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU General Public License for more details.
