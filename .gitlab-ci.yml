@@ -89,7 +89,6 @@ build:
     refs:
       - tags
   script:
-    - find | grep TokenBridge
     - mvn
       $MAVEN_CLI_OPTS
       --activate-profiles ci,docker,coverage
