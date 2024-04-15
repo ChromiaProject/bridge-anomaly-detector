@@ -146,6 +146,7 @@ variables:
   DOCKER_TLS_CERTDIR: ""
   DOCKER_DRIVER: overlay2
   DOCKER_CLI_EXPERIMENTAL: enabled
+  TEST_MOUNT_DIRECTORY: /builds/$CI_PROJECT_PATH/mnt
   JACOCO_REPORT_DIR: target/site/jacoco
 
 # Cache downloaded dependencies and plugins between builds.
