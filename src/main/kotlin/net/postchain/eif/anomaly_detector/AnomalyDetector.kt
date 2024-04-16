@@ -190,8 +190,9 @@ class AnomalyDetector(
         if (isTokenBridgePaused()) {
             // TODO already paused
         } else {
-            // TODO pause the contract - not if we already sent a pause?
-
+            web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
+                it.pause()
+            }
             anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
         }
     }

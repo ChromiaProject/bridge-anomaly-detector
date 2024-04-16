@@ -41,6 +41,7 @@ import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
 import net.postchain.eif.encodeSignatureWithV
 import net.postchain.eif.getEthereumAddress
+import net.postchain.eif.transaction.TransactionSubmitter
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvEncoder
@@ -64,8 +65,7 @@ import org.http4k.core.Status
 import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -88,6 +88,11 @@ import org.web3j.crypto.Sign
 import org.web3j.protocol.core.DefaultBlockParameter
 import org.web3j.protocol.exceptions.TransactionException
 import org.web3j.tx.Contract
+import org.web3j.tx.FastRawTransactionManager
+import org.web3j.tx.Transfer
+import org.web3j.tx.response.PollingTransactionReceiptProcessor
+import org.web3j.utils.Convert
+import java.math.BigDecimal
 import java.math.BigInteger
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -255,7 +260,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 // Evm rpc
                 mapOf(networkId to EvmConfig(
                         listOf("http://localhost:1", evmRpcUrl),
-                        Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
+                        Credentials.create(node.appConfig.privKey),
                         LogProcessorConfig(2, 10, 50)
                 )),
 
@@ -450,7 +455,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         assertEquals(gtv(authDescriptorId), gtvAuthDescriptorId)
         authId = gtv(accountId, gtvAuthDescriptorId)
 
-        withdrawAmount = BigInteger("1234567890", 16)
+        withdrawAmount = BigInteger("1", 16)
         enqueueTx(withdrawOnPostchain(userPubkey, userPriKey, authId, testTokenAddress, userEvmAddress, withdrawAmount, eifBcRid))
         sealBlock()
         snapshotHeights.add(currentBlockHeight)
@@ -596,19 +601,45 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 }
     }
 
-//    @Test
+    @Test
     @Order(120)
     fun `detect paused bridge`() {
 
         // It will of course be unpaused to start with
         assertThat(bridge.paused().send().value).isFalse()
 
+        Transfer(web3j, transactionManager).sendFunds(
+                node0EvmAddress.value,
+                BigDecimal.valueOf(400), Convert.Unit.ETHER).send()
+
         // Pause it
-        val pauseResponse = bridge.pause().send()
-        assertThat(pauseResponse.isStatusOK).isTrue()
+        val nodeTransactionManager = FastRawTransactionManager(
+                web3j,
+                Credentials.create(node.appConfig.privKey),
+                PollingTransactionReceiptProcessor(
+                        web3j,
+                        1000,
+                        30
+                )
+        )
+
+        val pauseFunctionData = TransactionSubmitter.encodeFunction("pause", listOf(), listOf())
+        val gasLimitPauseFunction = gasProvider.getGasLimit(pauseFunctionData)
+        val gasPricePauseFunction = gasProvider.getGasPrice(pauseFunctionData)
+
+        nodeTransactionManager.sendTransaction(
+                gasPricePauseFunction,
+                gasLimitPauseFunction,
+                bridge.contractAddress,
+                pauseFunctionData,
+                BigInteger.ZERO
+        )
 
         // Verify it being paused
-        assertThat(bridge.paused().send().value).isTrue()
+        Awaitility.await().atMost(Duration.ONE_MINUTE).untilAsserted {
+            sealBlock()
+            assertThat(bridge.paused().send().value).isTrue()
+        }
 
         // Verify the anomaly detector understand it is paused
         val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors().values.first()
@@ -620,7 +651,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 }
     }
 
-//    @Test
+    @Test
     @Order(121)
     fun `detect unpaused bridge`() {
 
@@ -667,6 +698,144 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
         // Make sure the client is shutdown
         assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
+    }
+
+
+    @Test
+    @Order(160)
+    fun `add fake chain to monitor`() {
+
+        Awaitility.await()
+                .atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
+                }
+
+        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
+
+        Awaitility.await()
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
+                }
+
+        val restStatus = restStatus()
+        assertThat(restStatus.size).isEqualTo(1)
+        assertThat(restStatus[0].blockchainRid).isEqualTo(ecBcRid.toHex())
+    }
+
+    @Test
+    @Order(170)
+    fun `prepare - second withdraw token to evm`() {
+        logger.info { "withdraw token to evm" }
+
+        // Bridge some ft token to evm
+        val gtvAuthDescriptorId = blockQuery.query(
+                "ft4.get_account_auth_descriptors",
+                gtv("id" to accountId)
+        ).get()[0]["id"]!!
+
+        val auth = gtv(
+                gtv(AuthType.S.ordinal.toLong()),
+                gtv(GtvArray(arrayOf(gtv("A"), gtv("T"))), gtv(userPubkey)),
+                GtvNull
+        )
+
+        authDescriptorId = auth.merkleHash(GtvMerkleHashCalculator(myCS))
+        assertEquals(gtv(authDescriptorId), gtvAuthDescriptorId)
+        authId = gtv(accountId, gtvAuthDescriptorId)
+
+        withdrawAmount = BigInteger("1", 16)
+        enqueueTx(withdrawOnPostchain(userPubkey, userPriKey, authId, testTokenAddress, userEvmAddress, withdrawAmount, eifBcRid))
+        sealBlock()
+        snapshotHeights.add(currentBlockHeight)
+
+        // Get and verify the withdrawal data
+        val withdrawInfo = getLastWithdrawal(userEvmAddress)
+        //assertEquals(withdrawInfo["amount"]!!.asBigInteger(), withdrawAmount)
+        val serial = withdrawInfo["serial"]!!.asInteger()
+
+        // Query to get the event proof to withdraw fund on evm
+        val eventData = gtv(
+                gtv(serial),
+                gtv(networkId),
+                gtv(to32Bytes(testToken.contractAddress.substring(2))),
+                gtv(to32Bytes(evmAddress)),
+                gtv(withdrawAmount)
+        )
+        val encodedEventData = SimpleGtvEncoder.encodeGtv(eventData)
+        val eventHash = ds.digest(encodedEventData)
+        val eventProof = blockQuery.query("get_event_merkle_proof",
+                gtv("eventHash" to gtv(eventHash.toHex()))
+        ).get().toObject<EventMerkleProof>()
+
+
+         // Building a new withdrawal confirmation proof
+        logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
+        val eventBlockHeight = blockQuery.query("get_event_block_height",
+                gtv("eventHash" to gtv(eventHash.toHex()))
+        ).get().asInteger()
+
+        val blockRid = nodes[0].getRestApiModel(eifBcRid)?.getBlock(eventBlockHeight, true)!!.rid
+        val signature0 = nodes[0].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
+        assertThat(cryptoSystem.verifyDigest(blockRid, signature0.toSignature())).isEqualTo(true)
+        val signature1 = nodes[1].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
+        assertThat(cryptoSystem.verifyDigest(blockRid, signature1.toSignature())).isEqualTo(true)
+        val signatures = listOf(
+                EifSignature(
+                        encodeSignatureWithV(blockRid, Signature(signature0.subjectID, signature0.data)),
+                        getEthereumAddress(signature0.subjectID)),
+                EifSignature(
+                        encodeSignatureWithV(blockRid, Signature(signature1.subjectID, signature1.data)),
+                        getEthereumAddress(signature1.subjectID))
+        ).sortedBy { it.pubkey.toHex() }
+        val eventProof2 = eventProof.copy(blockWitness = signatures)
+
+        logger.info { "\trequesting withdrawal using the new confirmation proof" }
+        val receipt = bridge.withdrawRequest(
+                eventProof2.web3EventData(),
+                eventProof2.web3EventProof(),
+                eventProof2.web3BlockHeader(),
+                eventProof2.web3Signatures(),
+                eventProof2.web3Signers(),
+                eventProof2.web3ExtraProofData()
+        ).send()
+        // wait some seconds to allow evm node to mine some new blocks
+        // that mature enough to withdraw requesting fund
+        Awaitility.await().atMost(Duration.TEN_MINUTES).until {
+            val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
+            block.block != null
+        }
+        bridge.withdraw(Bytes32(eventHash), Address(evmAddress)).send()
+        userBalance = testToken.balanceOf(Address(evmAddress)).send()
+        assertEquals(userBalance.value, initialMint - totalDepositedAmount + withdrawAmount.multiply(BigInteger.valueOf(2)))
+    }
+
+    @Test
+    @Order(180)
+    fun `verify anomaly detected`() {
+        var anomalyDetectors = mapOf<String, AnomalyDetector>()
+
+        Awaitility.await()
+                .atMost(Duration.TEN_MINUTES)
+                .untilAsserted {
+                    anomalyDetectors = anomalyDetectorsManager.getAnomalyDetectors()
+                    assertThat(anomalyDetectors.size).isEqualTo(1)
+                }
+        val anomalyDetector = anomalyDetectors.values.first()
+
+        Awaitility.await()
+                .atMost(Duration.TEN_MINUTES)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .untilAsserted {
+
+                    logger.info { "Waiting for anomaly detector..." }
+
+                    assertThat(anomalyDetector.logsProcessed).isEqualTo(1L)
+                    assertThat(anomalyDetector.logsVerified).isEqualTo(0L)
+                    assertThat(bridge.paused().send().value).isTrue()
+                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.PAUSED)
+                }
     }
 
 //    @Test
