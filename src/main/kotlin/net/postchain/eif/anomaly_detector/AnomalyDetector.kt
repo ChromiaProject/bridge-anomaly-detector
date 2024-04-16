@@ -135,7 +135,11 @@ class AnomalyDetector(
 
         logWarn { "Bridge was UNpaused" }
 
-        anomalyDetectorStatus = AnomalyDetectorStatus.NO_ANOMALIES // TODO what state? Do we have anomalies?
+        anomalyDetectorStatus =
+                if (anomaliesCache.getAnomalies().isEmpty())
+                    AnomalyDetectorStatus.NO_ANOMALIES
+                else
+                    AnomalyDetectorStatus.ANOMALY_FOUND
     }
 
     private fun verifyHeight(logVerification: LogVerification, retry: Boolean) {
@@ -188,7 +192,9 @@ class AnomalyDetector(
         logError { "Pausing token bridge..." }
 
         if (isTokenBridgePaused()) {
-            // TODO already paused
+
+            logInfo { "Bridge already paused" }
+
         } else {
             web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
                 it.pause()
