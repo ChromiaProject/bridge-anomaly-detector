@@ -1,13 +1,3 @@
-# TODO
-
-- start only if node has built a block - if possible.
-- add randomness +- 1-5 minutes to reduce risk of sending pause tx at the same time?
-- pause call
-- ci pipelines
-- Pull full EC for testing (not using the current mocked version)?
-- This readme - short description and usage
-- Integration test in postchain-chromia?
-
 # Bridge anomaly detector
 
 Application to monitor bridges EVM `withdraw requests` and verify them again postchain instance. If an anomaly is found
@@ -23,6 +13,13 @@ docker run --rm -it \
     --volume $(pwd)/../directory1-example/config/config.1.properties:/opt/chromaway/directory1-example/config/config.0.properties bridge-anomaly-detector \
     config.properties
 ```
+
+# TODO
+
+- start only if node has built a block - if possible.
+- add randomness +- 1-5 minutes to reduce risk of sending pause tx at the same time?
+- Pull full EC for testing (not using the current mocked version)?
+- Integration test in postchain-chromia?
 
 ## Copyright & License information
 
