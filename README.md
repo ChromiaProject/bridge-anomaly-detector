@@ -1,11 +1,15 @@
 # Bridge anomaly detector
 
-Application to monitor bridges EVM `withdraw requests` and verify them again postchain instance. If an anomaly is found
-it will pause the bridge contract.
+Application to monitor bridges EVM `withdraw requests` and verify them again a postchain instance. If an anomaly is
+found it will pause the bridge contract.
 
 # Build and use
 
-`mvn clean install -DskipTests -Dlocal --activate-profiles docker`
+`mvn clean install --activate-profiles docker`
+
+Running it requires 1-2 config files:
+ 1. Either a bridge anomaly detector config (see `doc/example.config`) with the nodes private key set.
+ 2. Or a bridge anomaly detector config file + a ordinary node.config file (which the private key will be read from)
 
 ```
 docker run --rm -it \

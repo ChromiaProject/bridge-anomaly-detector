@@ -122,6 +122,7 @@ class AnomalyDetectorsManager(
     fun stop() {
 
         bridgeMonitorJob.cancel()
+        anomalyDetectors.values.forEach { it.stop() }
     }
 
     private fun getBlockchainsToMonitor(appConfig: AppConfig): List<Blockchain> {

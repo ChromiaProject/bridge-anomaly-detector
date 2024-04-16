@@ -3,7 +3,7 @@ Configuration:
   properties:
     property:
       - name: pattern
-        value: "%d{yyyy-MM-dd HH:mm:ss.SSS} +++ %notEmpty{bcRid=%X{bcRid}} %msg +++%n"
+        value: "%-5level %d{yyyy-MM-dd HH:mm:ss.SSS}%notEmpty{ bcRid=%X{bcRid}} %msg%n"
 
   Appenders:
     Console:

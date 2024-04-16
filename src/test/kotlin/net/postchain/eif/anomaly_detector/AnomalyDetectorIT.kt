@@ -65,7 +65,8 @@ import org.http4k.core.Status
 import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
-import org.junit.jupiter.api.*
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -75,7 +76,6 @@ import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
-import org.junit.jupiter.api.assertThrows
 import org.junitpioneer.jupiter.DisableIfTestFails
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.web3j.abi.FunctionEncoder
@@ -86,7 +86,6 @@ import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.crypto.Credentials
 import org.web3j.crypto.Sign
 import org.web3j.protocol.core.DefaultBlockParameter
-import org.web3j.protocol.exceptions.TransactionException
 import org.web3j.tx.Contract
 import org.web3j.tx.FastRawTransactionManager
 import org.web3j.tx.Transfer
@@ -97,8 +96,6 @@ import java.math.BigInteger
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
-
-private const val BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS = 5L
 
 /**
  * This is based on EifIntegrationTest in postchain-chromia repository.
@@ -161,6 +158,10 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     private lateinit var anomalyDetectorsManager: AnomalyDetectorsManager
     private val restApiHttpHandler = restApiHttpHandler()
 
+    companion object {
+        private val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
+    }
+
     @BeforeAll
     fun setupBeforeAll() {
         super.setup()
@@ -182,9 +183,13 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
     @AfterAll
     fun tearDownAfterAll() {
+
+        logger.info { "tearDownAfterAll" }
+
         super.tearDown() // Calling @AfterEach IntegrationTestSetup.tearDown()
         web3j.shutdown()
         evmContainer.stop()
+        anomalyDetectorsManager.stop()
     }
 
     @AfterEach
@@ -235,7 +240,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         logger.info { "EIF chain deployed: chainId: $eifChainId, blockchainRid: $eifBcRid" }
 
         // c2 - Mocked economy chain
-        val ecChainGtvConfig = loadMockedEconomyBlockchainConfig(eifBcRid, bridge.contractAddress)
+        val ecChainGtvConfig = loadMockedEconomyBlockchainConfig()
         ecChainId = startNewBlockchain(
                 setOf(0), setOf(1), rawBlockchainConfiguration = GtvEncoder.encodeGtv(ecChainGtvConfig)
         )
@@ -255,6 +260,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Order(30)
     fun `start anomaly detector`() {
 
+        logger.info { "start anomaly detector" }
+
         appConfig = AppConfig(
 
                 // Evm rpc
@@ -267,7 +274,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                 // Node and postchain
                 "http://127.0.0.1:${node.getRestApiHttpPort()}",
                 ecBcRid.toHex(),
-                BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS,
+                BRIDGE_CHAIN_REFRESH_INTERVAL_MS,
 
                 // Timeouts disabled for tests to make it execute right away
                 TimeoutConfig(
@@ -285,6 +292,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Order(40)
     fun `start anomaly detector api`() {
 
+        logger.info { "start anomaly detector api" }
+
         val restApi = startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)
         assertThat(restApi).isNotNull()
 
@@ -296,6 +305,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Order(50)
     fun `add chain to monitor`() {
 
+        logger.info { "add chain to monitor" }
+
         Awaitility.await()
                 .atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
@@ -305,7 +316,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
 
         Awaitility.await()
-                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
                 .untilAsserted {
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
                 }
@@ -318,6 +329,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(60)
     fun `prepare - register ft accounts`() {
+
         logger.info { "register ft accounts" }
 
         val sigMaker = cryptoSystem.buildSigMaker(KeyPair(KeyPairHelper.pubKey(0), KeyPairHelper.privKey(0)))
@@ -395,6 +407,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(70)
     fun `prepare - deposit token on evm`() {
+
         logger.info { "deposit token on evm" }
 
         // Deposit token on EVM smart contract to bridge it to postchain
@@ -437,6 +450,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(80)
     fun `prepare - withdraw token to evm`() {
+
         logger.info { "withdraw token to evm" }
 
         // Bridge some ft token to evm
@@ -549,6 +563,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Order(90)
     fun `verify correct withdraw request`() {
 
+        logger.info { "verify correct withdraw request" }
+
         var anomalyDetectors = mapOf<String, AnomalyDetector>()
 
         anomalyDetectorsManager.start()
@@ -577,6 +593,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(120)
     fun `detect paused bridge`() {
+
+        logger.info { "detect paused bridge" }
 
         // It will of course be unpaused to start with
         assertThat(bridge.paused().send().value).isFalse()
@@ -628,6 +646,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Order(121)
     fun `detect unpaused bridge`() {
 
+        logger.info { "detect unpaused bridge" }
+
         // It will of course be paused to start with
         assertThat(bridge.paused().send().value).isTrue()
 
@@ -650,7 +670,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
     @Test
     @Order(150)
-    fun `remove chain from monitor`() {
+    fun `remove chain bridge from monitor`() {
+
+        logger.info { "remove chain from monitor" }
 
         Awaitility.await()
                 .atMost(Duration.TEN_SECONDS)
@@ -661,7 +683,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         awaitTransaction(ecClient, ecChainId) { it.addOperation("remove_anomaly_detection", gtv(eifBcRid)) }
 
         Awaitility.await()
-                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
                 .untilAsserted {
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
                 }
@@ -673,10 +695,11 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
     }
 
-
     @Test
     @Order(160)
     fun `add fake chain to monitor`() {
+
+        logger.info { "add fake chain to monitor" }
 
         Awaitility.await()
                 .atMost(Duration.TEN_SECONDS)
@@ -687,7 +710,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
 
         Awaitility.await()
-                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_SECONDS * 2, TimeUnit.SECONDS))
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
                 .untilAsserted {
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
                 }
@@ -700,6 +723,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(170)
     fun `prepare - second withdraw token to evm`() {
+
         logger.info { "withdraw token to evm" }
 
         // Bridge some ft token to evm
@@ -775,7 +799,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         ).send()
         // wait some seconds to allow evm node to mine some new blocks
         // that mature enough to withdraw requesting fund
-        Awaitility.await().atMost(Duration.TEN_MINUTES).until {
+        Awaitility.await().atMost(Duration.ONE_MINUTE).until {
             val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
             block.block != null
         }
@@ -787,28 +811,63 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     @Test
     @Order(180)
     fun `verify anomaly detected`() {
+
+        logger.info { "verify anomaly detected" }
+
         var anomalyDetectors = mapOf<String, AnomalyDetector>()
 
         Awaitility.await()
-                .atMost(Duration.TEN_MINUTES)
+                .atMost(Duration.ONE_MINUTE)
                 .untilAsserted {
+
+                    logger.info { "verify it is up" }
+
                     anomalyDetectors = anomalyDetectorsManager.getAnomalyDetectors()
                     assertThat(anomalyDetectors.size).isEqualTo(1)
                 }
         val anomalyDetector = anomalyDetectors.values.first()
 
         Awaitility.await()
-                .atMost(Duration.TEN_MINUTES)
+                .atMost(Duration.ONE_MINUTE)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .untilAsserted {
 
-                    logger.info { "Waiting for anomaly detector..." }
+                    logger.info { "Waiting for anomaly detector to detect anomaly and pause bridge..." }
 
                     assertThat(anomalyDetector.logsProcessed).isEqualTo(1L)
                     assertThat(anomalyDetector.logsVerified).isEqualTo(0L)
                     assertThat(bridge.paused().send().value).isTrue()
                     assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.PAUSED)
                 }
+
+        logger.info { "done" }
+    }
+
+    @Test
+    @Order(200)
+    fun `remove fake chain bridge from monitor`() {
+
+        logger.info { "remove fake chain bridge from monitor" }
+
+        Awaitility.await()
+                .atMost(Duration.TEN_SECONDS)
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
+                }
+
+        awaitTransaction(ecClient, ecChainId) { it.addOperation("remove_anomaly_detection", gtv(ecBcRid)) }
+
+        Awaitility.await()
+                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
+                .untilAsserted {
+                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
+                }
+
+        val restStatus = restStatus()
+        assertThat(restStatus.size).isEqualTo(0)
+
+        // Make sure the client is shutdown
+        assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
     }
 
 //    @Test
@@ -916,17 +975,8 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
             javaClass.getResource("/net/postchain/eif/blockchain_eif_it.xml")!!.readText()
     )
 
-    private fun loadMockedEconomyBlockchainConfig(
-            eifBcRid: BlockchainRid,
-            contractAddress: String): Gtv {
-
-        val config = javaClass.getResource("/net/postchain/eif/blockchain_mocked_ec_it.xml")!!.readText()
-                .replace("EIF_BCRID", eifBcRid.toHex())
-                .replace("EVM_NETWORK_ID", networkId.toString())
-                .replace("BRIDGE_CONTRACT", contractAddress)
-
-        return GtvMLParser.parseGtvML(config)
-    }
+    private fun loadMockedEconomyBlockchainConfig(): Gtv =
+        GtvMLParser.parseGtvML(javaClass.getResource("/net/postchain/eif/blockchain_mocked_ec_it.xml")!!.readText())
 
     private fun restStatus(): List<AnomalyDetectorStatusResponse> {
         val response = restApiHttpHandler.invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/status"))
