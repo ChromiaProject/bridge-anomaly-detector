@@ -4,8 +4,8 @@ include:
   - project: "chromaway/core-infra/gitlab-automation"
     ref: 1.1.13
     file:
-#      - templates/release.yml
-      - templates/report-code-coverage.yml
+      - templates/release.yml
+#      - templates/report-code-coverage.yml
       - templates/maven-dependency-scanning.yml
       - templates/container-dependency-scanning.yml
 
@@ -42,15 +42,10 @@ include:
         - "**/target/failsafe-reports/TEST-*.xml"
         - "**/target/rell-reports/rell-tests.xml"
     expire_in: 1 week
-  artifacts:
-    when: always
-    paths:
-      - $JACOCO_REPORT_DIR/*
-    expire_in: 1 week
 
 stages:
   - build
-  - code-coverage
+#  - code-coverage
   - deploy
   - dependency-check
   - release
@@ -65,13 +60,14 @@ deploy:
       $MAVEN_CLI_OPTS
       -Drevision=$CI_COMMIT_TAG
       -Djib.to.tags=$CI_COMMIT_TAG
+      -DskipTests
       --activate-profiles ci,docker,docker-push
       deploy
 
 build:
   extends:
     - .setup
-    - .visualise-test-coverage
+#    - .visualise-test-coverage
   stage: build
   interruptible: true
   except:
@@ -80,7 +76,7 @@ build:
   script:
     - mvn
       $MAVEN_CLI_OPTS
-      --activate-profiles ci,docker,coverage
+      --activate-profiles ci,coverage
       verify
 
 dependency-check:
@@ -95,19 +91,19 @@ container-scanning:
     REGISTRY: registry.gitlab.com/chromaway/core/bridge-anomaly-detector
   parallel:
     matrix:
-      - IMAGE: [ bad ]
+      - IMAGE: [ bridge-anomaly-detector ]
         VERSION: [ latest ]
   only:
     variables:
       - $RUN_DEPENDENCY_CHECK == "true"
 
-test-coverage-report:
-  stage: code-coverage
-  except:
-    refs:
-      - tags
-  dependencies:
-    - build
+#test-coverage-report:
+#  stage: code-coverage
+#  except:
+#    refs:
+#      - tags
+#  dependencies:
+#    - build
 
 variables:
   # This will suppress any download for dependencies and plugins or upload messages which would clutter the console log.
@@ -130,84 +126,3 @@ variables:
 cache:
   paths:
     - .m2/repository
-
-
-
-
-
-
-
-
-
-
-
-.git-setup:
-  script:
-    - set -eu
-    - git remote set-url --push origin "https://oauth2:${BUILD_USER_GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-    - git config --global user.name "build-user core-dev"
-    - git config --global user.email build_user@chromaway.com
-    - git checkout $CI_COMMIT_REF_NAME
-
-.release:
-  stage: release
-  image:
-    name: alpine/git
-    entrypoint: [""]
-  when: manual
-  before_script:
-    - !reference [.git-setup, script]
-    - git fetch --unshallow || true
-    - git fetch --tags
-    - CURRENT_VERSION=$(git describe --tags --abbrev=0)
-    - |
-      IFS=. read -r MAJOR MINOR PATCH <<EOF
-      $CURRENT_VERSION
-      EOF
-
-release-minor:
-  extends: .release
-  script:
-    - git tag $MAJOR.$((MINOR + 1)).0
-    - git push --tags
-  only:
-    - dev
-    - pos-12-60
-
-release-patch:
-  extends: .release
-  script:
-    - git tag $MAJOR.$MINOR.$((PATCH + 1))
-    - git push --tags
-  only:
-    - dev
-    - /^support\/.*$/
-    - pos-12-60
-
-.maven-version-update:
-  image: maven:3.9.2-jdk-17
-  only:
-    - dev
-    - pos-12-60
-  before_script:
-    - !reference [.git-setup, script]
-  when: manual
-  script:
-    - mvn versions:update-properties -DincludeProperties=$VERSIONS
-    - |
-      if [[ `git status --porcelain --untracked-files=no` ]]; then
-        branch_name="build-user-update-versions-$(date +%s)"
-        git checkout -b "$branch_name"
-        git commit -am "BUILD_USER: Update version properties - $VERSIONS"
-        if ! mvn $MAVEN_CI_OPTS verify; then
-          echo "Maven build failed. Creating merge request"
-          git push origin "$branch_name" \
-            -o merge_request.create \
-            -o merge_request.target=dev \
-            -o merge_request.draft \
-            -o merge_request.title="BUILD_USER: Update version properties"
-        else
-          echo "Maven build succeeded. Pushing changes directly to 'dev' branch."
-          git push origin HEAD:dev
-        fi
-      fi

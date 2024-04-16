@@ -28,7 +28,8 @@
         <rell.maven.plugin.version>0.11.9</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.build.directory}/directory-chain/chromia.yml</directory.config>
-        <web3j.version>4.11.1</web3j.version>
+        <web3j.version>4.11.2</web3j.version>
+        <web3j-plugin.version>4.11.1</web3j-plugin.version>
         <log4j.version>2.23.1</log4j.version>
         <jackson.version>2.17.0</jackson.version>
 
@@ -364,7 +365,7 @@
             <plugin>
                 <groupId>org.web3j</groupId>
                 <artifactId>web3j-maven-plugin</artifactId>
-                <version>${web3j.version}</version>
+                <version>${web3j-plugin.version}</version>
                 <configuration>
                     <packageName>net.postchain.eif.contracts</packageName>
                     <nativeJavaType>false</nativeJavaType>
@@ -750,13 +751,11 @@
     <distributionManagement>
         <repository>
             <id>gitlab-maven</id>
-            <!--suppress UnresolvedMavenProperty -->
-            <url>https://gitlab.com/api/v4/projects/46346037/packages/maven</url>
+            <url>https://gitlab.com/api/v4/projects/56622991/packages/maven</url>
         </repository>
         <snapshotRepository>
             <id>gitlab-maven</id>
-            <!--suppress UnresolvedMavenProperty -->
-            <url>https://gitlab.com/api/v4/projects/46346037/packages/maven</url>
+            <url>https://gitlab.com/api/v4/projects/56622991/packages/maven</url>
         </snapshotRepository>
     </distributionManagement>
 

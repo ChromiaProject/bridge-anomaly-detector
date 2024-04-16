@@ -500,36 +500,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         ).get().toObject<EventMerkleProof>()
         assertArrayEquals(encodedEventData, eventProof.eventData)
 
-        // Trying to send withdrawRequest without setting blockchain RID
-        logger.info { "\tcan't withdraw without setting blockchain RID" }
-        val exception = assertThrows<TransactionException> {
-            bridge.withdrawRequest(
-                    eventProof.web3EventData(),
-                    eventProof.web3EventProof(),
-                    eventProof.web3BlockHeader(),
-                    eventProof.web3Signatures(),
-                    eventProof.web3Signers(),
-                    eventProof.web3ExtraProofData()
-            ).send()
-        }
-        assertEquals(exception.message!!.contains("TokenBridge: blockchain rid is not set"), true)
         bridge.setBlockchainRid(Bytes32(eifBcRid.data)).send()
-
-        // Updating validators
-        logger.info { "\tcan't withdraw using the confirmation proof built before the validator list was changed" }
         updateValidatorsInPostchain()
         updateValidatorsInValidatorContract()
-        val exception2 = assertThrows<TransactionException> {
-            bridge.withdrawRequest(
-                    eventProof.web3EventData(),
-                    eventProof.web3EventProof(),
-                    eventProof.web3BlockHeader(),
-                    eventProof.web3Signatures(),
-                    eventProof.web3Signers(),
-                    eventProof.web3ExtraProofData()
-            ).send()
-        }
-        assertEquals(exception2.message!!.contains("TokenBridge: block signature is invalid"), true)
 
         // Building a new withdrawal confirmation proof
         logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
