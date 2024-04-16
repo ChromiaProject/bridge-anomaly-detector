@@ -1,0 +1,35 @@
+Configuration:
+  name: Default
+  properties:
+    property:
+      - name: pattern
+        value: "%d{yyyy-MM-dd HH:mm:ss.SSS} +++ %notEmpty{bcRid=%X{bcRid}} %msg +++%n"
+
+  Appenders:
+    Console:
+      - name: ConsoleAppender
+        target: SYSTEM_OUT
+        PatternLayout:
+          pattern: ${pattern}
+
+    File:
+      - name: FileAppender
+        fileName: "logs/test.log"
+        PatternLayout:
+          pattern: ${pattern}
+
+  Loggers:
+
+    Root:
+      level: info
+      additivity: false
+      AppenderRef:
+        - ref: FileAppender
+
+    Logger:
+      - name: test_logger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: ConsoleAppender
+          - ref: FileAppender
