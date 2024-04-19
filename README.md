@@ -3,7 +3,7 @@
 Application to monitor bridges EVM `withdraw requests` and verify them again a postchain instance. If an anomaly is
 found it will pause the bridge contract.
 
-# Build and use
+# Build
 
 `mvn clean install --activate-profiles docker`
 
@@ -11,11 +11,20 @@ Running it requires 1-2 config files:
  1. Either a bridge anomaly detector config (see `doc/example.config`) with the nodes private key set.
  2. Or a bridge anomaly detector config file + a ordinary node.config file (which the private key will be read from)
 
+# Run container
+
 ```
 docker run --rm -it \
     --volume $(pwd)/doc/example.properties:/opt/chromaway/bad/config.properties \
     --volume $(pwd)/../directory1-example/config/config.1.properties:/opt/chromaway/directory1-example/config/config.0.properties bridge-anomaly-detector \
     config.properties
+```
+
+# Run native application
+
+```
+tar -zxvf bridge-anomaly-detector-<version>-dist.tar.gz
+./bridge-anomaly-detector/bin/bad <config file>
 ```
 
 # TODO

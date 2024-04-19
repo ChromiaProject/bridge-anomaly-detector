@@ -477,23 +477,12 @@
                             </image>
                         </from>
                         <container>
-                            <entrypoint>
-                                <args>/usr/bin/bad</args>
-                            </entrypoint>
                             <appRoot>/opt/chromaway/bad</appRoot>
                             <workingDirectory>/opt/chromaway/bad</workingDirectory>
                             <mainClass>${main-class}</mainClass>
                             <creationTime>${git.commit.time}</creationTime>
                             <filesModificationTime>${git.commit.time}</filesModificationTime>
                         </container>
-                        <extraDirectories>
-                            <permissions>
-                                <permission>
-                                    <file>/usr/bin/bad</file>
-                                    <mode>755</mode>
-                                </permission>
-                            </permissions>
-                        </extraDirectories>
                         <containerizingMode>packaged</containerizingMode>
                     </configuration>
                     <executions>
