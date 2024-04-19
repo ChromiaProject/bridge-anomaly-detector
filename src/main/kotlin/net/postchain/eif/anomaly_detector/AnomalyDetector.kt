@@ -153,7 +153,7 @@ class AnomalyDetector(
             if (retry) {
                 logWarn { "Retry in ${getLogTime(timeoutConfig.missingHeightRetryDelay)}" }
 
-                anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, timeoutConfig.missingHeightRetryDelay + 1000) {
+                anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, timeoutConfig.missingHeightRetryDelay) {
                     verifyHeight(logVerification, false)
                 }
             } else {

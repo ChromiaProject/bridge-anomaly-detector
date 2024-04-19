@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit
 class AppConfig (
 
         // EVM
+        val evmClientConfig: EvmClientConfig,
         val evmConfig: Map<Long, EvmConfig>,
 
         // Postchain
@@ -56,6 +57,7 @@ class AppConfig (
             }.toMap()
 
             val appConfig = AppConfig(
+                    evmClientConfig = EvmClientConfig(config),
                     evmConfig = evmConfigs,
 
                     nodeUrl = config.getEnvOrStringProperty("POSTCHAIN_URL", "postchain.url", "http://localhost:7740"),
@@ -64,7 +66,7 @@ class AppConfig (
 
                     TimeoutConfig(config),
 
-                    RestApiConfig.fromConfiguration(config),
+                    RestApiConfig(config),
             )
 
             return appConfig

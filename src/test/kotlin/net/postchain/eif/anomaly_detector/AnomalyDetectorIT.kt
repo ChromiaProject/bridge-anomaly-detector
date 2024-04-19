@@ -30,6 +30,7 @@ import net.postchain.eif.EifSignature
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.config.EvmClientConfig
 import net.postchain.eif.anomaly_detector.config.EvmConfig
 import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
 import net.postchain.eif.anomaly_detector.config.TimeoutConfig
@@ -263,6 +264,7 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         logger.info { "start anomaly detector" }
 
         appConfig = AppConfig(
+                EvmClientConfig(),
 
                 // Evm rpc
                 mapOf(networkId to EvmConfig(

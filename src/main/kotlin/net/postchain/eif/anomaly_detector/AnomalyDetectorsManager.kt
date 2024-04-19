@@ -17,6 +17,7 @@ import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
 import net.postchain.economy.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.eif.anomaly_detector.config.AppConfig
+import net.postchain.eif.anomaly_detector.config.EvmClientConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
 import net.postchain.eif.anomaly_detector.evm.Web3jServiceFactory.buildServices
@@ -79,7 +80,7 @@ class AnomalyDetectorsManager(
                 logger.error { "No rpc urls set for network ${blockchainToMonitor.evmNetworkId}" }
             } else {
 
-                val web3jRequestHandler = createWeb3jRequestHandler(evmConfig.rpcUrls)
+                val web3jRequestHandler = createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls)
                 val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
 
                 val anomalyDetector = AnomalyDetector(
@@ -139,9 +140,9 @@ class AnomalyDetectorsManager(
                             listOf()
                     ))
 
-    private fun createWeb3jRequestHandler(rpcUrls: List<String>): Web3jRequestHandler {
+    private fun createWeb3jRequestHandler(evmClientConfig: EvmClientConfig, rpcUrls: List<String>): Web3jRequestHandler {
 
-        val web3jServices = buildServices(rpcUrls, 10_000L, 10_000L, 10_000L)
+        val web3jServices = buildServices(rpcUrls, evmClientConfig.connectTimeoutSeconds, evmClientConfig.readTimeoutSeconds, evmClientConfig.writeTimeoutSeconds)
         val web3jRequestHandler = Web3jRequestHandler(web3jServices)
 
         return web3jRequestHandler
