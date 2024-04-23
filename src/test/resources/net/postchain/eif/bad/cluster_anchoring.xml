@@ -1,0 +1,539 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<dict>
+    <entry key="blockstrategy">
+        <dict>
+            <entry key="maxblocktime">
+                <int>2000</int>
+            </entry>
+            <entry key="maxblocktransactions">
+                <int>500</int>
+            </entry>
+            <entry key="mininterblockinterval">
+                <int>1000</int>
+            </entry>
+            <entry key="name">
+                <string>net.postchain.d1.anchoring.AnchoringBlockBuildingStrategy</string>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="config_consensus_strategy">
+        <string>HEADER_HASH</string>
+    </entry>
+    <entry key="configurationfactory">
+        <string>net.postchain.gtx.GTXBlockchainConfigurationFactory</string>
+    </entry>
+    <entry key="gtx">
+        <dict>
+            <entry key="modules">
+                <array>
+                    <string>net.postchain.rell.module.RellPostchainModuleFactory</string>
+                    <string>net.postchain.gtx.StandardOpsGTXModule</string>
+                    <string>net.postchain.d1.anchoring.cluster.ClusterAnchoringGTXModule</string>
+                    <string>net.postchain.d1.icmf.IcmfSenderGTXModule</string>
+                    <string>net.postchain.d1.icmf.IcmfReceiverGTXModule</string>
+                </array>
+            </entry>
+            <entry key="rell">
+                <dict>
+                    <entry key="modules">
+                        <array>
+                            <string>anchoring_chain_cluster</string>
+                        </array>
+                    </entry>
+                    <entry key="sources">
+                        <dict>
+                            <entry key="anchoring_chain_cluster/icmf.rell">
+                                <string>
+entity icmf_messages_height {
+    key topic: text,
+        sender: byte_array,
+        sender_height: integer;
+    anchor_height: integer;
+    index topic, anchor_height;
+}
+
+struct signed_block_header_with_anchor_height {
+    block_header: byte_array;
+    witness: byte_array;
+    anchor_height: integer;
+}
+
+@extend(after_anchoring_block) function process_icmf(block_rid: byte_array, header: block_header) {
+    if (not header.extra.contains("icmf_send")) return;
+
+    val icmf_data = map&lt;text,gtv&gt;.from_gtv_pretty(header.extra["icmf_send"]);
+    for (topic in icmf_data.keys()) {
+        if (not(topic.starts_with(ICMF_TOPIC_GLOBAL_PREFIX))) continue;
+        val previous_anchor_height = icmf_messages_height @? { topic, .anchor_height &lt; op_context.block_height } (@max .anchor_height) ?: -1;
+        op_context.emit_event("icmf_header", (block_rid = block_rid, topic = topic, previous_anchor_height = previous_anchor_height).to_gtv_pretty());
+
+        create icmf_messages_height(
+            topic = topic,
+            sender = header.blockchain_rid,
+            sender_height = header.height,
+            anchor_height = op_context.block_height
+        );
+    }
+}
+
+query icmf_get_headers_with_messages_after_height(topic: text, from_anchor_height: integer): list&lt;signed_block_header_with_anchor_height&gt; {
+    return (m: icmf_messages_height, a: anchor_block) @*
+        { a.blockchain_rid == m.sender, a.block_height == m.sender_height, topic, .anchor_height &gt; from_anchor_height }
+        (signed_block_header_with_anchor_height(block_header = a.block_header, witness = a.witness, anchor_height = m.anchor_height), @omit @sort m.rowid);
+}</string>
+                            </entry>
+                            <entry key="anchoring_chain_cluster/module.rell">
+                                <string>module;
+
+import anchoring_chain_common.*;
+import messaging.icmf.constants.*;
+
+struct module_args {
+    node_availability_report_interval_ms: integer = 86400000; // 1000 * 60 * 60 * 24 - 1 day
+}
+
+operation __begin_block(height: integer) {
+    val current_number_of_signers = extract_number_of_signers_from_current_configuration();
+    update_maximum_number_of_nodes_in_cluser_since_last_report(current_number_of_signers);
+
+    if (is_time_to_send_availability_report()) {
+        send_node_availability_report();
+        reset_node_availability_report_stat(current_number_of_signers);
+    }
+}
+
+function extract_number_of_signers_from_current_configuration(): integer {
+    val config = map&lt;text, gtv&gt;.from_gtv(chain_context.raw_config);
+    return list&lt;byte_array&gt;.from_gtv(config["signers"]).size();
+}
+</string>
+                            </entry>
+                            <entry key="anchoring_chain_cluster/node_availability_reporting.rell">
+                                <string>import messaging.node_availability_reporting.*;
+import messaging.icmf.*;
+
+val INTEGER_SIZE = 4;
+
+object node_availability_report_stat {
+    mutable last_node_availability_report: integer = 0;
+    mutable maximum_number_of_signers_since_last_report: integer = 0;
+}
+
+struct current_range {
+    mutable block_offset: integer = 0;
+    active_signers: set&lt;byte_array&gt; = set();
+}
+
+struct range_statistic {
+    mutable total_ranges: integer = 0;
+    number_of_active_ranges: map&lt;byte_array, integer&gt; = map&lt;byte_array, integer&gt;();
+}
+
+function is_time_to_send_availability_report(): boolean {
+    // Initial block
+    if (op_context.last_block_time == -1) return false;
+    // Second block, set last report to now to avoid sending initial empty report
+    if (node_availability_report_stat.last_node_availability_report == 0) {
+        node_availability_report_stat.last_node_availability_report = op_context.last_block_time;
+        return false;
+    }
+
+    return op_context.last_block_time - node_availability_report_stat.last_node_availability_report &gt;= chain_context.args.node_availability_report_interval_ms;
+}
+
+function update_maximum_number_of_nodes_in_cluser_since_last_report(current_number_of_signers: integer) {
+    if (current_number_of_signers &gt; node_availability_report_stat.maximum_number_of_signers_since_last_report) {
+        node_availability_report_stat.maximum_number_of_signers_since_last_report = current_number_of_signers;
+    }
+}
+
+function send_node_availability_report() {
+    val node_availability = calculate_node_availability(node_availability_report_stat.last_node_availability_report, op_context.last_block_time, node_availability_report_stat.maximum_number_of_signers_since_last_report);
+    val node_availability_report = node_availability_report(start_time = node_availability_report_stat.last_node_availability_report, end_time = op_context.last_block_time, node_availability);
+
+    send_message(node_availability_report_topic, node_availability_report.to_gtv());
+}
+
+function reset_node_availability_report_stat(current_number_of_signers: integer) {
+    node_availability_report_stat.last_node_availability_report = op_context.last_block_time;
+    node_availability_report_stat.maximum_number_of_signers_since_last_report = current_number_of_signers;
+}
+
+function calculate_node_availability(start_time: integer, end_time: integer, block_range_size: integer): map&lt;byte_array, decimal&gt; {
+    log("Calculating node availability, between timestamps %d and %d".format(start_time, end_time));
+    val anchored_block_witnesses = anchor_block @* { .timestamp &gt;= start_time, .timestamp &lt; end_time } (@sort @omit .timestamp, .blockchain_rid, .witness);
+    log("Fetched %d blocks from DB".format(anchored_block_witnesses.size()));
+
+    val range_statistics = map&lt;byte_array, range_statistic&gt;();
+    val current_ranges = map&lt;byte_array, current_range&gt;();
+
+    // Any overflowing unfinished range will be calculated but not considered for node availability
+    // Maybe there is a way to avoid the calculation?
+    for ((blockchain_rid, witness) in anchored_block_witnesses) {
+        val current_range = current_ranges.get_or_default(blockchain_rid, current_range());
+        current_range.active_signers.add_all(extract_signers_from_witness(witness));
+
+        current_range.block_offset++;
+        current_ranges[blockchain_rid] = current_range;
+
+        // Range is finished let's calculate statistics for it
+        if (current_range.block_offset &gt;= block_range_size) {
+            val range_statistic = range_statistics.get_or_default(blockchain_rid, range_statistic());
+            range_statistic.total_ranges++;
+            for (active_signer in current_range.active_signers) {
+                val active_ranges = range_statistic.number_of_active_ranges.get_or_default(active_signer, 0);
+                range_statistic.number_of_active_ranges[active_signer] = active_ranges + 1;
+            }
+            range_statistics[blockchain_rid] = range_statistic;
+
+            current_range.block_offset = 0;
+            current_range.active_signers.clear();
+        }
+    }
+
+    // Calculate availability factor
+    val node_availability = map&lt;byte_array, decimal&gt;();
+    for ((blockchain_rid, range_statistic) in range_statistics) {
+
+        for (signer in range_statistic.number_of_active_ranges.keys()) {
+            node_availability[signer] = node_availability.get_or_default(signer, 0) + decimal(range_statistic.number_of_active_ranges[signer]) / decimal(range_statistic.total_ranges);
+        }
+    }
+
+    for ((node, availability) in node_availability) {
+        node_availability[node] /= range_statistics.size();
+    }
+
+    log("Node availability calculation completed");
+    return node_availability;
+}
+
+function extract_signers_from_witness(witness: byte_array): list&lt;byte_array&gt; {
+    val sig_count = parse_integer(witness, 0);
+    var witness_bytes_index = INTEGER_SIZE;
+
+    val signers = list&lt;byte_array&gt;();
+    for (signature in range(sig_count)) {
+        val subject_id_size = parse_integer(witness, witness_bytes_index);
+        witness_bytes_index += INTEGER_SIZE;
+
+        val subject_id = witness.sub(witness_bytes_index, witness_bytes_index + subject_id_size);
+        witness_bytes_index += subject_id_size;
+
+        signers.add(subject_id);
+
+        val signature_size = parse_integer(witness, witness_bytes_index);
+        witness_bytes_index += INTEGER_SIZE + signature_size;
+    }
+
+    return signers;
+}
+
+function parse_integer(bytes: byte_array, start_index: integer) = integer.from_hex(bytes.sub(start_index, start_index + INTEGER_SIZE).to_hex());</string>
+                            </entry>
+                            <entry key="anchoring_chain_common/anchoring_api.rell">
+                                <string>import messaging.icmf.*;
+import messaging.anchoring_api.*;
+
+@extend(receive_icmf_message) function receive_get_last_anchored_heights(sender: byte_array, topic: text, body: gtv) {
+    if (topic != get_last_anchored_heights_topic) return;
+
+    val message = get_last_anchored_heights_message.from_gtv(body);
+
+    if (message.target_anchoring_chain != chain_context.blockchain_rid) return;
+
+    val anchored_blockchains = map&lt;byte_array, integer&gt;();
+    for (brid in message.blockchains) {
+        anchored_blockchains[brid] = get_last_anchored_block(brid)?.block_height ?: -1;
+    }
+
+    send_message(
+        last_anchored_heights_topic,
+        last_anchored_heights_message(message.request_id, anchored_blockchains).to_gtv()
+    );
+}
+</string>
+                            </entry>
+                            <entry key="anchoring_chain_common/configuration_failed.rell">
+                                <string>@extend(after_anchoring_block) function process_configuration_failed(block_rid: byte_array, header: block_header) {
+    if (not header.extra.contains("failed_config_hash")) return;
+    val failed_config_hash = byte_array.from_gtv(header.extra["failed_config_hash"]);
+    val blockchain_rid = header.blockchain_rid;
+
+    log("Anchoring chain %s detected failed configuration for chain %s at height %d".format(
+        chain_context.blockchain_rid, blockchain_rid, header.height));
+    send_message(configuration_failed_topic,
+        configuration_failed(blockchain_rid = blockchain_rid, header.height, config_hash = failed_config_hash).to_gtv());
+}
+</string>
+                            </entry>
+                            <entry key="anchoring_chain_common/configuration_updated.rell">
+                                <string>@extend(after_anchoring_block) function process_configuration_updated(block_rid: byte_array, header: block_header) {
+    if (not header.extra.contains("config_hash")) return;
+    val current_config_hash = header.extra["config_hash"];
+    val blockchain_rid = header.blockchain_rid;
+
+    val prev_config_hash = anchor_block @? { blockchain_rid, .block_height &lt; header.height } (
+        @omit @sort_desc .block_height,
+        block_header.from_bytes($.block_header).extra.get_or_null("config_hash")
+    ) limit 1;
+
+    if (prev_config_hash != null and current_config_hash != prev_config_hash) {
+        log("Anchoring chain %s detected updated configuration for chain %s at height %d from %s to %s".format(
+            chain_context.blockchain_rid, blockchain_rid, header.height, prev_config_hash, current_config_hash));
+        send_message(
+            configuration_updated_topic,
+            configuration_updated(blockchain_rid, header.height, config_hash = byte_array.from_gtv(current_config_hash)).to_gtv()
+        );
+    }
+}
+</string>
+                            </entry>
+                            <entry key="anchoring_chain_common/module.rell">
+                                <string>module;
+
+import messaging.configuration_update_message.*;
+
+@log entity anchor_block {
+    key blockchain_rid: byte_array, block_height: integer;
+    index timestamp: integer;
+    block_rid: byte_array;
+    block_header: byte_array;
+    witness: byte_array;
+    anchoring_tx_op_index: integer;
+}
+
+struct block_header {
+    blockchain_rid: byte_array;
+    previous_block_rid: byte_array;
+    merkle_root_hash: byte_array;
+    timestamp: integer;
+    height: integer;
+    dependencies: gtv; // Can be either GtvNull or GtvArray
+    extra: map&lt;text,gtv&gt;;
+}
+
+struct anchoring_tx_with_op_index {
+    tx_rid: byte_array;
+    tx_data: byte_array;
+    tx_op_index: integer;
+}
+
+operation __anchor_block_header(block_rid: byte_array, header: gtv, witness: byte_array) {
+    anchor_block_header(block_rid, header, witness);
+}
+
+function anchor_block_header(block_rid: byte_array, header: gtv, witness: byte_array) {
+    val decoded_header = block_header.from_gtv(header);
+    create anchor_block(
+        blockchain_rid = decoded_header.blockchain_rid,
+        block_height = decoded_header.height,
+        timestamp = decoded_header.timestamp,
+        block_rid = block_rid,
+        block_header = header.to_bytes(),
+        witness = witness,
+        anchoring_tx_op_index = op_context.op_index
+    );
+
+    after_anchoring_block(block_rid, decoded_header);
+}
+
+query get_last_anchored_block(blockchain_rid: byte_array): struct&lt;anchor_block&gt;? {
+    return anchor_block @? { blockchain_rid } (@omit @sort_desc .block_height, $.to_struct()) limit 1;
+}
+
+query get_anchored_block_at_height(blockchain_rid: byte_array, height: integer): struct&lt;anchor_block&gt;? {
+    return anchor_block @? { blockchain_rid, .block_height == height } ($.to_struct());
+}
+
+query get_anchoring_transaction_for_block_rid(blockchain_rid: byte_array, block_rid: byte_array): anchoring_tx_with_op_index? {
+    return anchor_block @? { blockchain_rid, block_rid } (anchoring_tx_with_op_index(
+        tx_rid = .transaction.tx_rid,
+        tx_data = .transaction.tx_data,
+        tx_op_index = .anchoring_tx_op_index
+    ));
+}
+
+query is_block_anchored(blockchain_rid: byte_array, block_rid: byte_array): boolean {
+    return exists(anchor_block @? { blockchain_rid, block_rid });
+}
+
+@extendable function after_anchoring_block(block_rid: byte_array, decoded_header: block_header) {}
+</string>
+                            </entry>
+                            <entry key="messaging/anchoring_api.rell">
+                                <string>module;
+
+import ^.icmf.*;
+import ^.icmf.receiver.*;
+
+val get_last_anchored_heights_topic = ICMF_TOPIC_GLOBAL_PREFIX + "get_last_anchored_heights";
+val last_anchored_heights_topic = ICMF_TOPIC_GLOBAL_PREFIX + "last_anchored_heights";
+
+entity pending_request {
+    key request_id: integer;
+}
+
+object request_counter {
+    mutable counter: integer = 0;
+}
+
+function create_request(): pending_request {
+    val request = create pending_request(request_counter.counter);
+    request_counter.counter = request_counter.counter + 1;
+    return request;
+}
+
+struct get_last_anchored_heights_message {
+    request_id: integer;
+    target_anchoring_chain: byte_array;
+    blockchains: list&lt;byte_array&gt;;
+}
+
+struct last_anchored_heights_message {
+    request_id: integer;
+    anchored_blockchains: map&lt;byte_array, integer&gt;;
+}
+
+function request_last_anchored_heights(target_anchoring_chain: byte_array, blockchain_rids: list&lt;byte_array&gt;): integer {
+    val request = create_request();
+
+    send_message(
+        get_last_anchored_heights_topic,
+        get_last_anchored_heights_message(
+            request_id = request.request_id,
+            target_anchoring_chain = target_anchoring_chain,
+            blockchains = blockchain_rids
+        ).to_gtv()
+    );
+
+    return request.request_id;
+}
+
+@extend(receive_icmf_message) function receive_last_anchored_heights(sender: byte_array, topic: text, body: gtv) {
+    if (topic != last_anchored_heights_topic) return;
+
+    val message = last_anchored_heights_message.from_gtv(body);
+    val pending_req = pending_request @? { message.request_id };
+    if (empty(pending_req)) {
+        log("get_last_anchored_heights request not found: " + message.request_id);
+        return;
+    }
+
+    on_last_anchored_heights_received(message.request_id, message.anchored_blockchains);
+
+    delete pending_req;
+}
+
+@extendable function on_last_anchored_heights_received(request_id: integer, anchored_blockchains: map&lt;byte_array, integer&gt;);
+</string>
+                            </entry>
+                            <entry key="messaging/configuration_update_message.rell">
+                                <string>module;
+
+import ^.icmf.constants.*;
+
+val configuration_updated_topic = ICMF_TOPIC_GLOBAL_PREFIX + "configuration_updated";
+val configuration_failed_topic = ICMF_TOPIC_GLOBAL_PREFIX + "configuration_failed";
+
+struct configuration_updated {
+    blockchain_rid: byte_array;
+    height: integer;
+    config_hash: byte_array;
+}
+
+struct configuration_failed {
+    blockchain_rid: byte_array;
+    height: integer;
+    config_hash: byte_array;
+}
+</string>
+                            </entry>
+                            <entry key="messaging/icmf/constants.rell">
+                                <string>module;
+
+val ICMF_MESSAGE_MAX_SIZE = 16 * 1024 * 1024; // 16 MiB
+val ICMF_TOPIC_GLOBAL_PREFIX = "G_";
+val ICMF_TOPIC_LOCAL_PREFIX = "L_";</string>
+                            </entry>
+                            <entry key="messaging/icmf/module.rell">
+                                <string>module;
+
+import .constants.*;
+
+function send_message(topic: text, body: gtv) {
+    val encoded_body = body.to_bytes();
+    require(topic.starts_with(ICMF_TOPIC_GLOBAL_PREFIX) or topic.starts_with(ICMF_TOPIC_LOCAL_PREFIX),
+        "Topic must start with " + ICMF_TOPIC_GLOBAL_PREFIX + " or " + ICMF_TOPIC_LOCAL_PREFIX);
+    require(encoded_body.size() &lt; ICMF_MESSAGE_MAX_SIZE, "Message body too big, max size is %d bytes".format(ICMF_MESSAGE_MAX_SIZE));
+
+    op_context.emit_event("icmf_message", (topic = topic, body = body).to_gtv_pretty());
+}
+</string>
+                            </entry>
+                            <entry key="messaging/icmf/receiver.rell">
+                                <string>module;
+
+operation __icmf_message(sender: byte_array, topic: text, body: gtv) {
+    receive_icmf_message(sender, topic, body);
+}
+
+@extendable function receive_icmf_message(sender: byte_array, topic: text, body: gtv) {}
+</string>
+                            </entry>
+                            <entry key="messaging/node_availability_reporting.rell">
+                                <string>module;
+
+import ^.icmf.constants.*;
+
+struct node_availability_report {
+    start_time: integer;
+    end_time: integer;
+    node_availability: map&lt;byte_array, decimal&gt;;
+}
+
+val node_availability_report_topic = ICMF_TOPIC_GLOBAL_PREFIX + "node_availability_report";
+</string>
+                            </entry>
+                        </dict>
+                    </entry>
+                    <entry key="strictGtvConversion">
+                        <int>1</int>
+                    </entry>
+                    <entry key="version">
+                        <string>0.13.10</string>
+                    </entry>
+                </dict>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="icmf">
+        <dict>
+            <entry key="receiver">
+                <dict>
+                    <entry key="global">
+                        <dict>
+                            <entry key="topics">
+                                <array>
+                                    <string>G_get_last_anchored_heights</string>
+                                </array>
+                            </entry>
+                        </dict>
+                    </entry>
+                </dict>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="revolt">
+        <dict>
+            <entry key="fast_revolt_status_timeout">
+                <int>2000</int>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="sync_ext">
+        <array>
+            <string>net.postchain.d1.icmf.IcmfReceiverSynchronizationInfrastructureExtension</string>
+        </array>
+    </entry>
+</dict>

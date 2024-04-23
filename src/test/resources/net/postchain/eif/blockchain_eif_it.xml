@@ -3,7 +3,7 @@
     <entry key="blockstrategy">
         <dict>
             <entry key="name">
-                <string>net.postchain.devtools.OnDemandBlockBuildingStrategy</string>
+                <string>net.postchain.base.BaseBlockBuildingStrategy</string>
             </entry>
         </dict>
     </entry>

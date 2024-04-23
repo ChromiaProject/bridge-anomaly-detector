@@ -19,15 +19,16 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.15.11</postchain.version>
-        <postchain.client.version>3.12.3</postchain.client.version>
-        <eif.version>0.4.4</eif.version>
-        <directory.chain.version>1.41.0</directory.chain.version>
+        <postchain.version>3.15.15</postchain.version>
+        <postchain.chromia.version>3.15.3</postchain.chromia.version>
+        <postchain.client.version>3.12.4</postchain.client.version>
+        <eif.version>0.4.6</eif.version>
+        <directory.chain.version>1.42.0</directory.chain.version>
         <chr.version>0.17.1</chr.version>
-        <rell.version>0.13.10</rell.version>
-        <rell.maven.plugin.version>0.11.9</rell.maven.plugin.version>
+        <rell.version>0.13.11</rell.version>
+        <rell.maven.plugin.version>0.11.11</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
-        <directory.config>${project.build.directory}/directory-chain/chromia.yml</directory.config>
+        <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.11.2</web3j.version>
         <web3j-plugin.version>4.11.1</web3j-plugin.version>
         <log4j.version>2.23.1</log4j.version>
@@ -120,6 +121,23 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- EIF EVM Rell -->
+        <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>postchain-eif-rell</artifactId>
+            <version>${eif.version}</version>
+            <type>tar.gz</type>
+            <classifier>sources</classifier>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Postchain Chromia-->
+        <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>chromia-core</artifactId>
+            <version>${postchain.chromia.version}</version>
+        </dependency>
+
         <!-- REST -->
         <dependency>
             <groupId>org.http4k</groupId>
@@ -189,8 +207,22 @@
 
         <!-- Test -->
         <dependency>
+            <groupId>net.postchain</groupId>
+            <artifactId>deployment-test</artifactId>
+            <classifier>tests</classifier>
+            <type>test-jar</type>
+            <version>${postchain.chromia.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>jdbc</artifactId>
+            <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -268,6 +300,27 @@
                     <mainClass>${main-class}</mainClass>
                 </configuration>
             </plugin>
+
+            <!-- EIF contracts -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>sources</classifier>
+                            <includeArtifactIds>postchain-eif-contracts</includeArtifactIds>
+                            <includeTypes>tar.gz</includeTypes>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
@@ -281,20 +334,24 @@
                         </goals>
                         <configuration>
                             <source>${directory.source}</source>
-                            <configPath>${directory.config}</configPath>
+                            <configPath>${directory.source}/../chromia.yml</configPath>
                         </configuration>
                     </execution>
                     <execution>
-                        <id>rell-economy-chain-client</id>
+                        <id>rell-d1-client-gen</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>rell-generate-client</goal>
                         </goals>
                         <configuration>
                             <source>${directory.source}</source>
-                            <packageName>net.postchain.economy</packageName>
-                            <mainModule>economy_chain</mainModule>
-                            <target>${project.build.directory}/generated-sources/rell-client/economy</target>
+                            <packageName>net.postchain.chain0</packageName>
+                            <mainModules>
+                                <mainModule>management_chain_directory1</mainModule>
+                                <mainModule>anchoring_chain_common</mainModule>
+                                <mainModule>management_chain_mainnet</mainModule>
+                                <mainModule>economy_chain</mainModule>
+                            </mainModules>
                         </configuration>
                     </execution>
                 </executions>
@@ -355,6 +412,7 @@
                             ${project.build.directory}/${project.artifactId}-${project.version}-dist/management-console/bin/bad
                         </DIST_EXECUTABLE>
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
+                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:${postchain.chromia.version}</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
                 </configuration>
                 <executions>
@@ -363,26 +421,6 @@
                             <goal>integration-test</goal>
                             <goal>verify</goal>
                         </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- EIF contracts -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>unpack-dependencies</goal>
-                        </goals>
-                        <configuration>
-                            <classifier>sources</classifier>
-                            <includeArtifactIds>postchain-eif-contracts</includeArtifactIds>
-                            <includeTypes>tar.gz</includeTypes>
-                            <outputDirectory>${project.build.directory}</outputDirectory>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -554,7 +592,7 @@
                         <executions>
                             <execution>
                                 <id>d1-resources</id>
-                                <phase>generate-sources</phase>
+                                <phase>initialize</phase>
                                 <goals>
                                     <goal>checkout</goal>
                                 </goals>
@@ -722,6 +760,11 @@
             <id>chromia-parent</id>
             <name>Chromia parent GitLab Registry</name>
             <url>https://gitlab.com/api/v4/projects/50818999/packages/maven</url>
+        </repository>
+        <repository>
+            <id>postchain-chromia</id>
+            <name>Postchain chromia GitLab Registry</name>
+            <url>https://gitlab.com/api/v4/projects/33481005/packages/maven</url>
         </repository>
         <repository>
             <id>postchain-client</id>

@@ -17,6 +17,22 @@ Configuration:
         fileName: "logs/test.log"
         PatternLayout:
           pattern: ${pattern}
+      - name: EvmEventReceiver_EvmContainerAppender
+        fileName: "logs/evm_container.log"
+        PatternLayout:
+          pattern: "%msg%n"
+      - name: EvmEventReceiver_Node1Appender
+        fileName: "logs/node1.log"
+        PatternLayout:
+          pattern: "%msg%n"
+      - name: EvmEventReceiver_Node2Appender
+        fileName: "logs/node2.log"
+        PatternLayout:
+          pattern: "%msg%n"
+      - name: EvmEventReceiver_Node3Appender
+        fileName: "logs/node3.log"
+        PatternLayout:
+          pattern: "%msg%n"
 
   Loggers:
 
@@ -33,3 +49,25 @@ Configuration:
         AppenderRef:
           - ref: ConsoleAppender
           - ref: FileAppender
+
+      # EvmEventReceiver tests
+      - name: EvmEventReceiver_EvmContainerLogger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: EvmEventReceiver_EvmContainerAppender
+      - name: EvmEventReceiver_Node1Logger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: EvmEventReceiver_Node1Appender
+      - name: EvmEventReceiver_Node2Logger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: EvmEventReceiver_Node2Appender
+      - name: EvmEventReceiver_Node3Logger
+        level: info
+        additivity: false
+        AppenderRef:
+          - ref: EvmEventReceiver_Node3Appender

@@ -5,28 +5,48 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonObject
 import mu.KotlinLogging
-import net.postchain.base.BaseBlockWitness
-import net.postchain.base.configuration.KEY_SIGNERS
 import net.postchain.base.snapshot.SimpleDigestSystem
-import net.postchain.client.config.PostchainClientConfig
-import net.postchain.client.core.PostchainClient
-import net.postchain.client.impl.PostchainClientProviderImpl
-import net.postchain.client.request.EndpointPool
+import net.postchain.chain0.common.init.initOperation
+import net.postchain.chain0.common.operations.addNodeToClusterOperation
+import net.postchain.chain0.common.operations.registerNodeWithUnitsOperation
+import net.postchain.chain0.common.operations.updateNodeWithUnitsOperation
+import net.postchain.chain0.common.queries.getBlockchains
+import net.postchain.chain0.common.queries.getNodeData
+import net.postchain.chain0.common.queries.getSummary
+import net.postchain.chain0.direct_cluster.createClusterOperation
+import net.postchain.chain0.direct_container.createContainerOperation
+import net.postchain.chain0.economy_chain_in_directory_chain.getEconomyChainRid
+import net.postchain.chain0.economy_chain_in_directory_chain.initEconomyChainOperation
+import net.postchain.chain0.evm_event_receiver.initEvmEventReceiverChainOperation
+import net.postchain.chain0.lib.eif.evm.getAccountIdByEvmAddress
+import net.postchain.chain0.lib.eif.evm.registerAccountOperation
+import net.postchain.chain0.lib.eif.ft4.addNewEvmErc20Operation
+import net.postchain.chain0.lib.eif.ft4.addNewTokenMappingOperation
+import net.postchain.chain0.lib.ft4.accounts.AuthDescriptor
+import net.postchain.chain0.lib.ft4.accounts.AuthType
+import net.postchain.chain0.lib.ft4.admin.registerAssetOperation
+import net.postchain.chain0.lib.ft4.assets.external.getAssetBalance
+import net.postchain.chain0.lib.ft4.assets.external.getAssetsByName
+import net.postchain.chain0.lib.ft4.auth.external.ftAuthOperation
+import net.postchain.chain0.model.ProviderInfo
+import net.postchain.chain0.model.ProviderTier
+import net.postchain.chain0.proposal_provider.proposeProvidersOperation
+import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
 import net.postchain.common.data.Hash
 import net.postchain.common.data.KECCAK256
 import net.postchain.common.hexStringToByteArray
+import net.postchain.common.hexStringToWrappedByteArray
 import net.postchain.common.toHex
-import net.postchain.concurrent.util.get
-import net.postchain.core.BlockRid
-import net.postchain.core.block.BlockQueries
 import net.postchain.crypto.KeyPair
-import net.postchain.crypto.Signature
-import net.postchain.crypto.devtools.KeyPairHelper
-import net.postchain.devtools.PostchainTestNode
-import net.postchain.devtools.PostchainTestNode.Companion.DEFAULT_CHAIN_IID
-import net.postchain.eif.EifSignature
+import net.postchain.crypto.Secp256K1CryptoSystem
+import net.postchain.d1.cluster.ClusterManagement
+import net.postchain.dapp.PostchainContainer
+import net.postchain.dapp.postTransactionUntilConfirmed
+import net.postchain.devtools.ManagedModeTest
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.anomaly_detector.config.AppConfig
@@ -37,21 +57,24 @@ import net.postchain.eif.anomaly_detector.config.TimeoutConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
 import net.postchain.eif.anomaly_detector.rest.AnomalyDetectorStatusResponse
 import net.postchain.eif.anomaly_detector.rest.statusBody
+import net.postchain.eif.bad.GethContainer
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
-import net.postchain.eif.encodeSignatureWithV
 import net.postchain.eif.getEthereumAddress
 import net.postchain.eif.transaction.TransactionSubmitter
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvEncoder
 import net.postchain.gtv.GtvFactory.gtv
+import net.postchain.gtv.GtvInteger
 import net.postchain.gtv.GtvNull
 import net.postchain.gtv.gtvml.GtvMLParser
 import net.postchain.gtv.mapper.toObject
 import net.postchain.gtv.merkle.GtvMerkleHashCalculator
 import net.postchain.gtv.merkleHash
+import net.postchain.images.common.ManagedModeBase
+import net.postchain.images.directory1.awaitQueryResult
 import org.apache.hc.client5.http.config.RequestConfig
 import org.apache.hc.client5.http.cookie.StandardCookieSpec
 import org.apache.hc.client5.http.impl.classic.HttpClients
@@ -71,13 +94,13 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.MethodOrderer
 import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 import org.junitpioneer.jupiter.DisableIfTestFails
+import org.testcontainers.containers.output.Slf4jLogConsumer
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.web3j.abi.FunctionEncoder
 import org.web3j.abi.datatypes.Address
@@ -85,16 +108,18 @@ import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.crypto.Credentials
-import org.web3j.crypto.Sign
+import org.web3j.protocol.Web3j
 import org.web3j.protocol.core.DefaultBlockParameter
+import org.web3j.protocol.http.HttpService
 import org.web3j.tx.Contract
 import org.web3j.tx.FastRawTransactionManager
+import org.web3j.tx.TransactionManager
 import org.web3j.tx.Transfer
+import org.web3j.tx.gas.DefaultGasProvider
 import org.web3j.tx.response.PollingTransactionReceiptProcessor
 import org.web3j.utils.Convert
 import java.math.BigDecimal
 import java.math.BigInteger
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -105,68 +130,132 @@ import java.util.concurrent.TimeUnit
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 @DisableIfTestFails
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class AnomalyDetectorIT : EifBaseIntegrationTest(
-//        prependUrls = listOf("http://127.0.0.1:8888", "http://127.0.0.1:9999")
-) {
+class AnomalyDetectorIT : ManagedModeTest() {
 
     val logger = KotlinLogging.logger("test_logger")
 
     private lateinit var ds: SimpleDigestSystem
 
-    private val accountNum = 15
-    private val accountBalance = 1L
+    private val networkId = 1337L
+    private val gasProvider = DefaultGasProvider()
+    private val snapshotHeights = mutableListOf<Long>()
+    private val tokenBridgeBinary = getBinaryFromArtifactResource("/artifacts/contracts/TokenBridge.sol/TokenBridge.json")
+    private val testTokenBinary = getBinaryFromArtifactResource("/artifacts/contracts/token/TestToken.sol/TestToken.json")
+    private val validatorBinary = getBinaryFromArtifactResource("/artifacts/contracts/Validator.sol/Validator.json")
 
-    // user
-    private val evmAddress = "e105ba42b66d08ac7ca7fc48c583599044a6dab3"
-    private val userEvmAddress = evmAddress.hexStringToByteArray()
-    private val userPubkey = "038f888dec563b5bc253e87abc90afd26c3287021d10236ea19d248043dc39e0b8".hexStringToByteArray()
-    private val userPriKey = "71b5b7f8de0661af934a5e4612f3d0ba183e639bdf4e7452fb6457ed3cfbc825".hexStringToByteArray()
-
-    // TODO: use getEvmAddress
-    private val node0EvmAddress = Address("659e4a3726275edFD125F52338ECe0d54d15BD99")
-    private val node1EvmAddress = Address("2c3fA9C9FC3C5CB2f9C09aF6f7214f64382eA086")
-
-    // other
-    private val otherEvmAddressString = "661683e5d36E83B38B1a20247ba6F5c410dC165d"
-    private val otherEvmAddress = otherEvmAddressString.hexStringToByteArray()
-
+    private val myCS = Secp256K1CryptoSystem()
     private val initialMint = BigInteger("FF".repeat(32), 16)
     private val depositNum = 5
     private val depositAmount = BigInteger("AA".repeat(16), 16)
-    private val totalDepositedAmount = depositNum.toBigInteger() * depositAmount
+    private var totalDepositedAmount = depositNum.toBigInteger() * depositAmount
     private lateinit var validator: Validator
     private lateinit var bridge: TokenBridge
     private lateinit var testToken: TestToken
     private lateinit var testTokenAddress: ByteArray
     private lateinit var userBalance: Uint256
     private lateinit var withdrawAmount: BigInteger
-    private lateinit var accountId: Gtv
     private lateinit var accountNumber: Gtv
     private lateinit var authDescriptorId: Hash
     private lateinit var authId: Gtv
-    private lateinit var otherAccountId: Gtv
-    private lateinit var assetId: Gtv
-    private lateinit var node: PostchainTestNode
-    private lateinit var blockQuery: BlockQueries
-    private var eifChainId = -1L
-    private var ecChainId = -1L
-    private lateinit var eifBcRid: BlockchainRid
-    private lateinit var ecBcRid: BlockchainRid
-    private var currentBlockHeight = 0L
-    private lateinit var ecClient: PostchainClient
+    private lateinit var assetId: ByteArray
     private lateinit var appConfig: AppConfig
     private lateinit var web3jClientsManager: Web3jClientsManager
     private lateinit var anomalyDetectorsManager: AnomalyDetectorsManager
     private val restApiHttpHandler = restApiHttpHandler()
 
-    companion object {
+    companion object : ManagedModeBase() {
         private val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
+        lateinit var ecBcRid: BlockchainRid
+        private val PostchainContainer.ec get() = client(ecBcRid)
+
+        private const val EVM_EVENT_RECEIVER_CHAIN_NAME = "evm_event_receiver_chain"
+        private const val EVM_TOKEN_BRIDGE_CHAIN_NAME = "evm_token_bridge"
+
+        private val evmContainerLogger = KotlinLogging.logger("EvmEventReceiver_EvmContainerLogger")
+        private val node1Logger = KotlinLogging.logger("EvmEventReceiver_Node1Logger")
+        private val node2Logger = KotlinLogging.logger("EvmEventReceiver_Node2Logger")
+        private val node3Logger = KotlinLogging.logger("EvmEventReceiver_Node3Logger")
+        override val logsSubdir = "evm_event_receiver"
+        private val provider1KeyPair = KeyPair.of(
+                "03ECD350EEBC617CBBFBEF0A1B7AE553A748021FD65C7C50C5ABB4CA16D4EA5B05",
+                "BBBDFE956021912512E14BB081B27A35A0EABC4098CB687E973C434006BCE114")
+
+        lateinit var eventReceiverBrid: BlockchainRid
+        lateinit var tokenBridgeBrid: BlockchainRid
+
+        private val evmContainer: GethContainer
+        private val web3j: Web3j
+        private val transactionManager: TransactionManager
+
+        // users
+        // - admin
+        private val adminKeyPair = KeyPair.of( // node1
+                "0350fe40766bc0ce8d08b3f5b810e49a8352fdd458606bd5fafe5acdcdc8ff3f57",
+                "3132333435363738393031323334353637383930313233343536373839303131"
+        )
+
+        // - Alice
+        private val alicePubkey = "038f888dec563b5bc253e87abc90afd26c3287021d10236ea19d248043dc39e0b8".hexStringToByteArray()
+        private val alicePrivkey = "71b5b7f8de0661af934a5e4612f3d0ba183e639bdf4e7452fb6457ed3cfbc825".hexStringToByteArray()
+        private val aliceKeyPair = KeyPair(alicePubkey, alicePrivkey)
+        private val aliceEvmAddressStr = "e105ba42b66d08ac7ca7fc48c583599044a6dab3"
+        private val aliceEvmAddress = aliceEvmAddressStr.hexStringToByteArray()
+        private lateinit var aliceAccountId: ByteArray
+
+        init {
+
+            // Initialize EVM container
+            evmContainer = GethContainer(logger = Slf4jLogConsumer(evmContainerLogger.underlyingLogger, true))
+                    .withNetwork(network)
+                    .apply {
+                        start()
+                    }
+
+            // Web3j
+            web3j = Web3j.build(HttpService(evmContainer.getExternalGethUrl()))
+            transactionManager = FastRawTransactionManager(
+                    web3j,
+                    Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
+                    PollingTransactionReceiptProcessor(web3j, 1000, 30)
+            )
+
+            // Nodes
+            chain0Config = this::class.java.getResource("/net/postchain/eif/bad/mainnet.xml")!!.readText()
+            node1 = postchainServer("node1", Slf4jLogConsumer(node1Logger.underlyingLogger, true),
+                    provider1KeyPair,
+                    "/net/postchain/images/directory1/config-no-subnodes")
+                    .withEifEnv()
+            node2 = postchainServer("node2", Slf4jLogConsumer(node2Logger.underlyingLogger, true),
+                    KeyPair.of("03F9ABC05F7D7639AEC97B18784D5C83CA82D1EAF8F96DC31E77A83F21DDE67F95", "FFC28105CFE2CC336624DCDFDEDB58157B37ED565C29F11A3B54B8F721DBA7C5"),
+                    "/net/postchain/images/directory1/config-no-subnodes")
+                    .withEifEnv()
+            node3 = postchainServer("node3", Slf4jLogConsumer(node3Logger.underlyingLogger, true),
+                    KeyPair.of("03D01591E5466B07AC1D1F77BEBE2164AB0BA31366FBF005907F28FD144D64B871", "AD329F5C4E4DDF226D1A4948D7A2CCB34E76F64D4972B934FDBBDBEF4CA7B905"),
+                    "/net/postchain/images/directory1/config-no-subnodes")
+                    .withEifEnv()
+
+            startNodesAndChain0()
+        }
+
+        private fun PostchainContainer.withEifEnv(): PostchainContainer {
+            withEnv("POSTCHAIN_EIF_ETHEREUM_URLS", evmContainer.getNetworkGethUrl())
+            withEnv("POSTCHAIN_EIF_ETHEREUM_MAX_READ_AHEAD", 200.toString())
+            withEnv("POSTCHAIN_EIF_ETHEREUM_MAX_QUEUE_SIZE", 100.toString())
+            withEnv("POSTCHAIN_EIF_EVM_MAX_TRY_ERRORS", 1.toString())
+            withEnv("POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER", "registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:3.15.3")
+            return this
+        }
+
+        @JvmStatic
+        @AfterAll
+        fun tearDownManagedModeBase() {
+            evmContainer.stop()
+            super.breakdown()
+        }
     }
 
     @BeforeAll
     fun setupBeforeAll() {
-        super.setup()
-
         ds = SimpleDigestSystem(MessageDigest.getInstance(KECCAK256))
 
         with(configOverrides) {
@@ -175,11 +264,6 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
             setProperty("ethereum.maxQueueSize", 100)
             setProperty("evm.maxTryErrors", 1)
         }
-    }
-
-    @BeforeEach
-    override fun setup() {
-        // This method blocks @BeforeEach in EifBaseIntegrationTest.setup()
     }
 
     @AfterAll
@@ -193,18 +277,13 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         anomalyDetectorsManager.stop()
     }
 
-    @AfterEach
-    override fun tearDown() {
-        // This method blocks @AfterEach EifBaseIntegrationTest.tearDown()
-    }
-
     @Test
     @Order(10)
     fun `prepare - deploy contracts`() {
         logger.info { "deploy contracts" }
 
         // Deploy validator contract
-        val encodedConstructor = FunctionEncoder.encodeConstructor(listOf(DynamicArray(Address::class.java, node0EvmAddress)))
+        val encodedConstructor = FunctionEncoder.encodeConstructor(listOf(DynamicArray(Address::class.java, Address(getEthereumAddress(node1.pubkey.data).toHex()))))
         validator = Contract.deployRemoteCall(Validator::class.java, web3j, transactionManager, gasProvider, validatorBinary, encodedConstructor).send()
 
         // Deploy token bridge contract
@@ -222,39 +301,85 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         bridge.allowToken(Address(testToken.contractAddress)).send()
     }
 
+
+    @Test
+    @Order(1)
+    fun `Setup the network`() {
+        logger.info("Setup the network")
+        node1Db.awaitBlockHeight(0)
+        with(node1.c0) {
+            val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/cluster_anchoring.xml")!!.readText())
+            val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/system_anchoring.xml")!!.readText())
+            transactionBuilder()
+                    .initOperation(GtvEncoder.encodeGtv(systemAnchoringGtvConfig), GtvEncoder.encodeGtv(clusterAnchoringGtvConfig))
+                    .postTransactionUntilConfirmed("init")
+            assertThat(getSummary().providers).isEqualTo(1L)
+            assertThat(getNodeData(node1.nodeKeyPair.pubKey).active).isTrue()
+        }
+        assertAnchoringChainProperties()
+
+        // Adding provider 2 & 3 as system
+        logger.info("Add system provider provider 2 & 3 and their nodes")
+        val newProviders = listOf(
+                ProviderInfo(node2.provider.pubKey.wData, "provider2", "http://provider2.com"),
+                ProviderInfo(node3.provider.pubKey.wData, "provider3", "http://provider3.com")
+        )
+        node1.client(chain0Brid, listOf(node1.provider, node2.provider, node3.provider)).transactionBuilder().addNop()
+                .proposeProvidersOperation(node1.providerPubkey, newProviders, ProviderTier.NODE_PROVIDER, system = true, active = true, description = "")
+                .registerNodeWithUnitsOperation(node2.providerPubkey, node2.pubkey.data, node2.nodeHost, node2.nodePort.toLong(), node2.nodeApiPath(), listOf(systemCluster), 2)
+                .registerNodeWithUnitsOperation(node3.providerPubkey, node3.pubkey.data, node3.nodeHost, node3.nodePort.toLong(), node3.nodeApiPath(), listOf(systemCluster), 2)
+                .postTransactionUntilConfirmed("System provider 2 & 3 registered and node added")
+
+        val providers = node1.c0.query("get_all_providers", gtv(mapOf()))
+        assertThat(providers.asArray().size).isEqualTo(3)
+
+        // Adding a dapp cluster
+        node1.client(chain0Brid, listOf(node1.provider, node2.provider)).transactionBuilder().addNop()
+                .createClusterOperation(node1.providerPubkey, "dapp_cluster", "SYSTEM_P", listOf(node1.providerPubkey))
+                .createContainerOperation(node1.providerPubkey, "dapp_container", "dapp_cluster", 1, listOf(node1.providerPubkey))
+                .updateNodeWithUnitsOperation(node1.providerPubkey, node1.pubkey.data, null, null, null, 3)
+                .addNodeToClusterOperation(node1.providerPubkey, node1.pubkey.data, "dapp_cluster")
+                .postTransactionUntilConfirmed("dapp_cluster and dapp_container created")
+
+    }
+
     @Test
     @Order(20)
-    fun `prepare - start nodes`() {
-        logger.info { "start nodes" }
+    fun `prepare - start chains`() {
+        logger.info { "start chains" }
 
-        // c0
-        startManagedSystem(1, 1, restApi = true)
+        logger.info("Deploy EVM Event Receiver Chain")
+        val gtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/evm_event_receiver.xml")!!.readText())
 
-        // c1
-        val chainGtvConfig = loadEifBlockchainConfig()
-        eifChainId = startNewBlockchain(
-                setOf(0), setOf(1), rawBlockchainConfiguration = GtvEncoder.encodeGtv(chainGtvConfig)
-        )
-        buildBlock(eifChainId)
-        node = nodes[0]
-        eifBcRid = node.getBlockchainInstance(eifChainId).blockchainEngine.blockchainRid
-        logger.info { "EIF chain deployed: chainId: $eifChainId, blockchainRid: $eifBcRid" }
+        node1.c0.transactionBuilder()
+                .initEvmEventReceiverChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(gtvConfig))
+                .postTransactionUntilConfirmed("Add $EVM_EVENT_RECEIVER_CHAIN_NAME")
 
-        // c2 - Mocked economy chain
+        val blockchains = node1.c0.getBlockchains(true)
+        val tcRid = blockchains.firstOrNull { it.name == EVM_EVENT_RECEIVER_CHAIN_NAME }?.rid
+        assertThat(tcRid).isNotNull()
+        eventReceiverBrid = BlockchainRid(tcRid!!)
+
+        logger.info { "$EVM_EVENT_RECEIVER_CHAIN_NAME deployed: $eventReceiverBrid" }
+
+
+        logger.info("Deploy Mocked economy chain")
         val ecChainGtvConfig = loadMockedEconomyBlockchainConfig()
-        ecChainId = startNewBlockchain(
-                setOf(0), setOf(1), rawBlockchainConfiguration = GtvEncoder.encodeGtv(ecChainGtvConfig)
-        )
-        buildBlock(ecChainId)
-        ecBcRid = node.getBlockchainInstance(ecChainId).blockchainEngine.blockchainRid
-        logger.info { "Mocked EC deployed: chainId: $ecChainId, blockchainRid: $ecBcRid" }
+        node1.c0.transactionBuilder()
+                .initEconomyChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(ecChainGtvConfig))
+                .postTransactionUntilConfirmed("Mocked EC initialized")
+        ecBcRid = BlockchainRid(node1.c0.getEconomyChainRid()!!)
 
-        ecClient = PostchainClientProviderImpl().createClient(
-                PostchainClientConfig(
-                        ecBcRid,
-                        EndpointPool.singleUrl("http://127.0.0.1:${node.getRestApiHttpPort()}"),
-                        listOf()
-                ))
+        logger.info { "Mocked EC deployed:  blockchainRid: $ecBcRid" }
+
+        logger.info("Deploy EVM Token Bridge dapp")
+        deployDapp("evm_token_bridge", "dapp_container", assertSigners = arrayOf(node1), icmfReceiver = eventReceiverBrid.data)
+
+        val brid = node1.c0.getBlockchains(true).firstOrNull { it.name == EVM_TOKEN_BRIDGE_CHAIN_NAME }?.rid
+        assertThat(brid).isNotNull()
+        tokenBridgeBrid = BlockchainRid(brid!!)
+
+        logger.info { "$EVM_TOKEN_BRIDGE_CHAIN_NAME deployed: $tokenBridgeBrid" }
     }
 
     @Test
@@ -268,15 +393,17 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
                 // Evm rpc
                 mapOf(networkId to EvmConfig(
-                        listOf("http://localhost:1", evmRpcUrl),
-                        Credentials.create(node.appConfig.privKey),
+                        listOf(evmContainer.getExternalGethUrl()),
+                        Credentials.create(node1.appConfig.privKey),
                         LogProcessorConfig(2, 10, 50)
                 )),
 
                 // Node and postchain
-                "http://127.0.0.1:${node.getRestApiHttpPort()}",
+                node1.apiPath(),
                 ecBcRid.toHex(),
                 BRIDGE_CHAIN_REFRESH_INTERVAL_MS,
+                10,
+                bypassBlockchainSyncCheck = false,
 
                 // Timeouts disabled for tests to make it execute right away
                 TimeoutConfig(
@@ -286,7 +413,12 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         )
 
         web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
-        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager)
+        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager) {
+            AnomalyContainerClusterManagement(
+                    ClusterManagementImpl(it),
+                    listOf(node1.apiPath())
+            )
+        }
         anomalyDetectorsManager.start()
     }
 
@@ -315,93 +447,67 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
                 }
 
-        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(eifBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
+        node1.ec.transactionBuilder()
+                .addOperation("add_anomaly_detection", gtv(tokenBridgeBrid), gtv(networkId), gtv(bridge.contractAddress))
+                .postTransactionUntilConfirmed("chain bridge to monitor added")
 
         Awaitility.await()
-                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
+                .atMost(Duration.TEN_SECONDS)
                 .untilAsserted {
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
                 }
 
         val restStatus = restStatus()
         assertThat(restStatus.size).isEqualTo(1)
-        assertThat(restStatus[0].blockchainRid).isEqualTo(eifBcRid.toHex())
+        assertThat(restStatus[0].blockchainRid).isEqualTo(tokenBridgeBrid.toHex())
     }
 
     @Test
     @Order(60)
     fun `prepare - register ft accounts`() {
+        logger.info { "Register FT accounts" }
 
-        logger.info { "register ft accounts" }
-
-        val sigMaker = cryptoSystem.buildSigMaker(KeyPair(KeyPairHelper.pubKey(0), KeyPairHelper.privKey(0)))
         val tokenName = "Chromia"
         val tokenSymbol = "CHR"
         val tokenDecimal = 18L
         val tokenIconUrl = "https://chromaway.com/chr"
 
-        enqueueTx(registerAsset(tokenName, tokenSymbol, tokenDecimal, tokenIconUrl, eifBcRid, sigMaker))
-        sealBlock()
+        node1.client(tokenBridgeBrid, signers = listOf(adminKeyPair)).transactionBuilder()
+                .registerAssetOperation(tokenName, tokenSymbol, tokenDecimal, tokenIconUrl)
+                .postTransactionUntilConfirmed("Register asset")
 
-        val value = node.getBlockchainInstance().blockchainEngine.getBlockQueries()
-                .query("ft4.get_assets_by_name", gtv(
-                        "name" to gtv(tokenName),
-                        "page_size" to gtv(1L),
-                        "page_cursor" to GtvNull
-                )).get()
-        assetId = value["data"]?.get(0)?.get("id")!!
+        assetId = awaitQueryResult {
+            node1.client(tokenBridgeBrid).getAssetsByName(tokenName, 1L, null).data[0]["id"]?.asByteArray()
+        }!!
 
         // Register evm account
-        val otherPubkey = "02E0A8A3C79C9F18B7CEAD2493435AC926B4A527EF670B873F5F1410084EFF9C80".hexStringToByteArray()
-        val otherPrivkey = "B31AB878C62B0E940B345C659A456D3573CF25960823C34C7BEEB5D1F813BEFD".hexStringToByteArray()
-        val sig = gtv(
-                gtv("39b0c8c44a10d0fd70c0ed0e833cf6d93818ae1b10777857eb868516932796dc".hexStringToByteArray()),
-                gtv("44de8f297cce55c3da8401dd77269d0baf978f60e97ebc5717d4c8eeaed3bea9".hexStringToByteArray()),
-                gtv(28L))
+        val aliceSig = net.postchain.chain0.lib.ft4.auth.Signature(
+                "39b0c8c44a10d0fd70c0ed0e833cf6d93818ae1b10777857eb868516932796dc".hexStringToWrappedByteArray(),
+                "44de8f297cce55c3da8401dd77269d0baf978f60e97ebc5717d4c8eeaed3bea9".hexStringToWrappedByteArray(),
+                28L
+        )
+        val aliceAuth = AuthDescriptor(
+                AuthType.S,
+                listOf(
+                        GtvArray(arrayOf(gtv("A"), gtv("T"))),
+                        gtv(alicePubkey)
+                ),
+                GtvNull
+        )
 
-        val otherSig = gtv(
-                gtv("8fa4216cd5979efdeb109e10f87225ea9579fd21289fac7f1410278554e79aff".hexStringToByteArray()),
-                gtv("442017757e4e627a98d40c89cdbdde4612251cc86acabba27cf1683cd1d7cb4c".hexStringToByteArray()),
-                gtv(28L))
+        node1.client(tokenBridgeBrid, signers = listOf(adminKeyPair)).transactionBuilder()
+                .addNewEvmErc20Operation(networkId, testTokenAddress, tokenName, tokenSymbol, tokenDecimal, true)
+                .addNewTokenMappingOperation(networkId, testTokenAddress, assetId)
+                .postTransactionUntilConfirmed("Add ERC-20 token")
+        node1.client(tokenBridgeBrid, signers = listOf(aliceKeyPair)).transactionBuilder()
+                .registerAccountOperation(aliceEvmAddress, aliceAuth, aliceSig)
+                .postTransactionUntilConfirmed("Register Alice account")
 
-        enqueueTx(addNewEvmErc20(testTokenAddress, tokenName, tokenSymbol, tokenDecimal, eifBcRid, sigMaker))
-        enqueueTx(addTokenMapping(testTokenAddress, assetId, eifBcRid, sigMaker))
-
-        // Register accounts
-        enqueueTx(registerAccount(userPubkey, userPriKey, userEvmAddress, sig, eifBcRid))
-        enqueueTx(registerAccount(otherPubkey, otherPrivkey, otherEvmAddress, otherSig, eifBcRid))
-
-        for (i in 1..accountNum) {
-            val acc = AccountRegister(
-                    ByteArray(32),
-                    KeyPairHelper.privKey(i),
-                    KeyPairHelper.pubKey(i),
-                    getEthereumAddress(KeyPairHelper.pubKey(i)),
-                    accountBalance
-            )
-            registerAccounts.add(acc)
-            val registerMessage = getRegisterMessage(acc.evmAddress.toHex().lowercase(), acc.pubkey.toHex().lowercase())
-            val evmSig = Sign.signPrefixedMessage(
-                    registerMessage.toByteArray(StandardCharsets.UTF_8),
-                    Credentials.create(acc.privKey.toHex()).ecKeyPair
-            )
-            val gtvEvmSig = gtv(
-                    gtv(evmSig.r),
-                    gtv(evmSig.s),
-                    gtv(BigInteger(evmSig.v).longValueExact())
-            )
-            enqueueTx(registerAccount(acc.pubkey, acc.privKey, acc.evmAddress, gtvEvmSig, eifBcRid))
-        }
-        sealBlock()
-
-        // query ft account id by evm address
-        blockQuery = node.getBlockchainInstance().blockchainEngine.getBlockQueries()
-        accountId = blockQuery.query("eif.evm.get_account_id_by_evm_address",
-                gtv("acc" to gtv(userEvmAddress))).get()
-        otherAccountId = blockQuery.query("eif.evm.get_account_id_by_evm_address",
-                gtv("acc" to gtv(otherEvmAddress))).get()
-        registerAccounts.forEach {
-            it.accountId = blockQuery.query("eif.evm.get_account_id_by_evm_address", gtv("acc" to gtv(it.evmAddress))).get().asByteArray()
+        awaitQueryResult {
+            node1.client(tokenBridgeBrid).getAccountIdByEvmAddress(aliceEvmAddress)?.also {
+                assertThat(it).isNotNull()
+                aliceAccountId = it
+            }
         }
     }
 
@@ -416,156 +522,46 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         for (i in 1..depositNum) {
             bridge.deposit(Address(testToken.contractAddress), Uint256(depositAmount)).send()
         }
-
-        userBalance = testToken.balanceOf(Address(evmAddress)).send()
+        // check the balance on EVM
+        userBalance = testToken.balanceOf(Address(aliceEvmAddressStr)).send()
         assertEquals(userBalance.value, initialMint - totalDepositedAmount)
 
-        // Check the asset balance
-        Awaitility.await().atMost(Duration.ONE_MINUTE).untilAsserted {
-            sealBlock() // keep postchain mine new blocks to ensure that all evm deposits are recorded
-            val balance = blockQuery.query("ft4.get_asset_balance", gtv("account_id" to accountId, "asset_id" to assetId)).get()["amount"]!!.asBigInteger()
-            assertEquals(totalDepositedAmount, balance)
+        // check the asset balance on Chromia
+
+        awaitQueryResult {
+            val balance = node1.client(tokenBridgeBrid).getAssetBalance(aliceAccountId, assetId)
+            assertThat(balance?.amount).isEqualTo(totalDepositedAmount)
         }
-        snapshotHeights.add(currentBlockHeight)
+        snapshotHeights.add(node1.client(tokenBridgeBrid).currentBlockHeight())
 
         // Check eif state for account as well
         val expectedState = SimpleGtvEncoder.encodeGtv(gtv(
-                gtv(to32Bytes(evmAddress)), // encode gtv array with assumption that the data contains only byte32 and uint256
+                gtv(to32Bytes(aliceEvmAddressStr)), // encode gtv array with assumption that the data contains only byte32 and uint256
                 gtv(1 * 2 * 32), // 2 * 32 bytes per entry
                 gtv(to32Bytes(testToken.contractAddress.substring(2))), // encode gtv array with assumption that the data contains only byte32 and uint256
                 gtv(totalDepositedAmount)
         ))
-        val accounts = blockQuery.query("eif.data.get_network_accounts",
-                gtv("network_id" to gtv(networkId))).get()
+        val accounts = node1.client(tokenBridgeBrid).query("eif.data.get_network_accounts",
+                gtv("network_id" to gtv(networkId)))
         accountNumber = accounts[0].asDict()["state_n"]!!
 
         val args = gtv(
-                "blockHeight" to gtv(currentBlockHeight),
+                "blockHeight" to gtv(node1.client(tokenBridgeBrid).currentBlockHeight()),
                 "accountNumber" to gtv(accountNumber.asInteger())
         )
-        val accountState = blockQuery.query("get_account_state_merkle_proof", args).get().asDict()
+        awaitQueryResult {
+            val accountState = node1.client(tokenBridgeBrid).query("get_account_state_merkle_proof", args).asDict()
 
-        val stateData = accountState["stateData"]!!
-        assertEquals(expectedState.toHex(), stateData.asByteArray().toHex())
-    }
-
-    @Test
-    @Order(80)
-    fun `prepare - withdraw token to evm`() {
-
-        logger.info { "withdraw token to evm" }
-
-        // Bridge some ft token to evm
-        val gtvAuthDescriptorId = blockQuery.query(
-                "ft4.get_account_auth_descriptors",
-                gtv("id" to accountId)
-        ).get()[0]["id"]!!
-
-        val auth = gtv(
-                gtv(AuthType.S.ordinal.toLong()),
-                gtv(GtvArray(arrayOf(gtv("A"), gtv("T"))), gtv(userPubkey)),
-                GtvNull
-        )
-
-        authDescriptorId = auth.merkleHash(GtvMerkleHashCalculator(myCS))
-        assertEquals(gtv(authDescriptorId), gtvAuthDescriptorId)
-        authId = gtv(accountId, gtvAuthDescriptorId)
-
-        withdrawAmount = BigInteger("1", 16)
-        enqueueTx(withdrawOnPostchain(userPubkey, userPriKey, authId, testTokenAddress, userEvmAddress, withdrawAmount, eifBcRid))
-        sealBlock()
-        snapshotHeights.add(currentBlockHeight)
-
-        // Check eif state for account after withdraw as well
-        val expectedState1 = SimpleGtvEncoder.encodeGtv(gtv(
-                gtv(to32Bytes(evmAddress)), // encode gtv array with assumption that the data contains only byte32 and uint256
-                gtv(1 * 2 * 32), // 2 * 32 bytes per entry
-                gtv(to32Bytes(testToken.contractAddress.substring(2))), // encode gtv array with assumption that the data contains only byte32 and uint256
-                gtv(totalDepositedAmount - withdrawAmount)
-        ))
-        val arg1 = gtv(
-                "blockHeight" to gtv(currentBlockHeight),
-                "accountNumber" to gtv(accountNumber.asInteger())
-        )
-        val accountState1 = blockQuery.query("get_account_state_merkle_proof", arg1).get().asDict()
-
-        val stateData1 = accountState1["stateData"]!!
-        assertEquals(expectedState1.toHex(), stateData1.asByteArray().toHex())
-
-        val balance = blockQuery.query("ft4.get_asset_balance",
-                gtv("account_id" to accountId, "asset_id" to assetId)).get()["amount"]!!.asBigInteger()
-        assertEquals(totalDepositedAmount - withdrawAmount, balance)
-
-        // Get and verify the withdrawal data
-        val withdrawInfo = getLastWithdrawal(userEvmAddress)
-        assertEquals(withdrawInfo["amount"]!!.asBigInteger(), withdrawAmount)
-        val serial = withdrawInfo["serial"]!!.asInteger()
-
-        // Query to get the event proof to withdraw fund on evm
-        val eventData = gtv(
-                gtv(serial),
-                gtv(networkId),
-                gtv(to32Bytes(testToken.contractAddress.substring(2))),
-                gtv(to32Bytes(evmAddress)),
-                gtv(withdrawAmount)
-        )
-        val encodedEventData = SimpleGtvEncoder.encodeGtv(eventData)
-        val eventHash = ds.digest(encodedEventData)
-        val eventProof = blockQuery.query("get_event_merkle_proof",
-                gtv("eventHash" to gtv(eventHash.toHex()))
-        ).get().toObject<EventMerkleProof>()
-        assertArrayEquals(encodedEventData, eventProof.eventData)
-
-        bridge.setBlockchainRid(Bytes32(eifBcRid.data)).send()
-        updateValidatorsInPostchain()
-        updateValidatorsInValidatorContract()
-
-        // Building a new withdrawal confirmation proof
-        logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
-        val eventBlockHeight = blockQuery.query("get_event_block_height",
-                gtv("eventHash" to gtv(eventHash.toHex()))
-        ).get().asInteger()
-
-        val blockRid = nodes[0].getRestApiModel(eifBcRid)?.getBlock(eventBlockHeight, true)!!.rid
-        val signature0 = nodes[0].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
-        assertThat(cryptoSystem.verifyDigest(blockRid, signature0.toSignature())).isEqualTo(true)
-        val signature1 = nodes[1].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
-        assertThat(cryptoSystem.verifyDigest(blockRid, signature1.toSignature())).isEqualTo(true)
-        val signatures = listOf(
-                EifSignature(
-                        encodeSignatureWithV(blockRid, Signature(signature0.subjectID, signature0.data)),
-                        getEthereumAddress(signature0.subjectID)),
-                EifSignature(
-                        encodeSignatureWithV(blockRid, Signature(signature1.subjectID, signature1.data)),
-                        getEthereumAddress(signature1.subjectID))
-        ).sortedBy { it.pubkey.toHex() }
-        val eventProof2 = eventProof.copy(blockWitness = signatures)
-
-        logger.info { "\trequesting withdrawal using the new confirmation proof" }
-        val receipt = bridge.withdrawRequest(
-                eventProof2.web3EventData(),
-                eventProof2.web3EventProof(),
-                eventProof2.web3BlockHeader(),
-                eventProof2.web3Signatures(),
-                eventProof2.web3Signers(),
-                eventProof2.web3ExtraProofData()
-        ).send()
-        // wait some seconds to allow evm node to mine some new blocks
-        // that mature enough to withdraw requesting fund
-        Awaitility.await().atMost(Duration.TEN_SECONDS).until {
-            val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
-            block.block != null
+            val stateData = accountState["stateData"]!!
+            assertEquals(expectedState.toHex(), stateData.asByteArray().toHex())
         }
-        bridge.withdraw(Bytes32(eventHash), Address(evmAddress)).send()
-        userBalance = testToken.balanceOf(Address(evmAddress)).send()
-        assertEquals(userBalance.value, initialMint - totalDepositedAmount + withdrawAmount)
     }
 
     @Test
     @Order(90)
     fun `verify correct withdraw request`() {
-
         logger.info { "verify correct withdraw request" }
+        withdraw()
 
         var anomalyDetectors = mapOf<String, AnomalyDetector>()
 
@@ -602,13 +598,13 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         assertThat(bridge.paused().send().value).isFalse()
 
         Transfer(web3j, transactionManager).sendFunds(
-                node0EvmAddress.value,
+                getEthereumAddress(node1.pubkey.data).toHex(),
                 BigDecimal.valueOf(400), Convert.Unit.ETHER).send()
 
         // Pause it
         val nodeTransactionManager = FastRawTransactionManager(
                 web3j,
-                Credentials.create(node.appConfig.privKey),
+                Credentials.create(node1.appConfig.privKey),
                 PollingTransactionReceiptProcessor(
                         web3j,
                         1000,
@@ -630,7 +626,6 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
 
         // Verify it being paused
         Awaitility.await().atMost(Duration.ONE_MINUTE).untilAsserted {
-            sealBlock()
             assertThat(bridge.paused().send().value).isTrue()
         }
 
@@ -682,7 +677,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
                 }
 
-        awaitTransaction(ecClient, ecChainId) { it.addOperation("remove_anomaly_detection", gtv(eifBcRid)) }
+        node1.ec.transactionBuilder()
+                .addOperation("remove_anomaly_detection", gtv(tokenBridgeBrid))
+                .postTransactionUntilConfirmed("removed chain bridge")
 
         Awaitility.await()
                 .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
@@ -709,7 +706,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
                 }
 
-        awaitTransaction(ecClient, ecChainId) { it.addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress)) }
+        node1.ec.transactionBuilder()
+                .addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress))
+                .postTransactionUntilConfirmed("added fake chain bridge")
 
         Awaitility.await()
                 .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
@@ -723,98 +722,11 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
     }
 
     @Test
-    @Order(170)
-    fun `prepare - second withdraw token to evm`() {
-
-        logger.info { "withdraw token to evm" }
-
-        // Bridge some ft token to evm
-        val gtvAuthDescriptorId = blockQuery.query(
-                "ft4.get_account_auth_descriptors",
-                gtv("id" to accountId)
-        ).get()[0]["id"]!!
-
-        val auth = gtv(
-                gtv(AuthType.S.ordinal.toLong()),
-                gtv(GtvArray(arrayOf(gtv("A"), gtv("T"))), gtv(userPubkey)),
-                GtvNull
-        )
-
-        authDescriptorId = auth.merkleHash(GtvMerkleHashCalculator(myCS))
-        assertEquals(gtv(authDescriptorId), gtvAuthDescriptorId)
-        authId = gtv(accountId, gtvAuthDescriptorId)
-
-        withdrawAmount = BigInteger("1", 16)
-        enqueueTx(withdrawOnPostchain(userPubkey, userPriKey, authId, testTokenAddress, userEvmAddress, withdrawAmount, eifBcRid))
-        sealBlock()
-        snapshotHeights.add(currentBlockHeight)
-
-        // Get and verify the withdrawal data
-        val withdrawInfo = getLastWithdrawal(userEvmAddress)
-        //assertEquals(withdrawInfo["amount"]!!.asBigInteger(), withdrawAmount)
-        val serial = withdrawInfo["serial"]!!.asInteger()
-
-        // Query to get the event proof to withdraw fund on evm
-        val eventData = gtv(
-                gtv(serial),
-                gtv(networkId),
-                gtv(to32Bytes(testToken.contractAddress.substring(2))),
-                gtv(to32Bytes(evmAddress)),
-                gtv(withdrawAmount)
-        )
-        val encodedEventData = SimpleGtvEncoder.encodeGtv(eventData)
-        val eventHash = ds.digest(encodedEventData)
-        val eventProof = blockQuery.query("get_event_merkle_proof",
-                gtv("eventHash" to gtv(eventHash.toHex()))
-        ).get().toObject<EventMerkleProof>()
-
-
-         // Building a new withdrawal confirmation proof
-        logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
-        val eventBlockHeight = blockQuery.query("get_event_block_height",
-                gtv("eventHash" to gtv(eventHash.toHex()))
-        ).get().asInteger()
-
-        val blockRid = nodes[0].getRestApiModel(eifBcRid)?.getBlock(eventBlockHeight, true)!!.rid
-        val signature0 = nodes[0].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
-        assertThat(cryptoSystem.verifyDigest(blockRid, signature0.toSignature())).isEqualTo(true)
-        val signature1 = nodes[1].getRestApiModel(eifBcRid)?.confirmBlock(BlockRid(blockRid))!!
-        assertThat(cryptoSystem.verifyDigest(blockRid, signature1.toSignature())).isEqualTo(true)
-        val signatures = listOf(
-                EifSignature(
-                        encodeSignatureWithV(blockRid, Signature(signature0.subjectID, signature0.data)),
-                        getEthereumAddress(signature0.subjectID)),
-                EifSignature(
-                        encodeSignatureWithV(blockRid, Signature(signature1.subjectID, signature1.data)),
-                        getEthereumAddress(signature1.subjectID))
-        ).sortedBy { it.pubkey.toHex() }
-        val eventProof2 = eventProof.copy(blockWitness = signatures)
-
-        logger.info { "\trequesting withdrawal using the new confirmation proof" }
-        val receipt = bridge.withdrawRequest(
-                eventProof2.web3EventData(),
-                eventProof2.web3EventProof(),
-                eventProof2.web3BlockHeader(),
-                eventProof2.web3Signatures(),
-                eventProof2.web3Signers(),
-                eventProof2.web3ExtraProofData()
-        ).send()
-        // wait some seconds to allow evm node to mine some new blocks
-        // that mature enough to withdraw requesting fund
-        Awaitility.await().atMost(Duration.ONE_MINUTE).until {
-            val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
-            block.block != null
-        }
-        bridge.withdraw(Bytes32(eventHash), Address(evmAddress)).send()
-        userBalance = testToken.balanceOf(Address(evmAddress)).send()
-        assertEquals(userBalance.value, initialMint - totalDepositedAmount + withdrawAmount.multiply(BigInteger.valueOf(2)))
-    }
-
-    @Test
     @Order(180)
     fun `verify anomaly detected`() {
 
         logger.info { "verify anomaly detected" }
+        withdraw()
 
         var anomalyDetectors = mapOf<String, AnomalyDetector>()
 
@@ -857,7 +769,9 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
                 }
 
-        awaitTransaction(ecClient, ecChainId) { it.addOperation("remove_anomaly_detection", gtv(ecBcRid)) }
+        node1.ec.transactionBuilder()
+                .addOperation("remove_anomaly_detection", gtv(ecBcRid))
+                .postTransactionUntilConfirmed("removed fake chain")
 
         Awaitility.await()
                 .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
@@ -872,14 +786,103 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
         assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
     }
 
-//    @Test
-//    @Order(900)
-//    fun `keep intances alive`() {
-//        Awaitility.await().atMost(Duration.FOREVER).pollInterval(5, TimeUnit.SECONDS).untilAsserted {
-//            logger.info { "Keeping alive...." }
-//            fail("keep alive")
-//        }
-//    }
+    private fun withdraw() {
+        // Bridge some ft token to evm
+        val gtvAuthDescriptorId = node1.client(tokenBridgeBrid).query(
+                "ft4.get_account_auth_descriptors",
+                gtv("id" to gtv(aliceAccountId))
+        )[0]["id"]!!
+
+        val auth = gtv(
+                gtv(AuthType.S.ordinal.toLong()),
+                gtv(GtvArray(arrayOf(gtv("A"), gtv("T"))), gtv(alicePubkey)),
+                GtvNull
+        )
+
+        authDescriptorId = auth.merkleHash(GtvMerkleHashCalculator(myCS))
+        assertEquals(gtv(authDescriptorId), gtvAuthDescriptorId)
+        authId = gtv(gtv(aliceAccountId), gtvAuthDescriptorId)
+
+        withdrawAmount = BigInteger("1", 16)
+
+        node1.client(tokenBridgeBrid, signers = listOf(aliceKeyPair)).transactionBuilder()
+                .ftAuthOperation(aliceAccountId, authDescriptorId)
+                .addOperation(
+                        "eif.ft4.bridge_ft_token_to_evm",
+                        gtv(networkId),
+                        gtv(testTokenAddress),
+                        gtv(aliceEvmAddress),
+                        gtv(withdrawAmount))
+                .addOperation("nop", GtvInteger(System.currentTimeMillis()))
+                .postTransactionUntilConfirmed("withdrawOnPostchain")
+        totalDepositedAmount -=  withdrawAmount
+        snapshotHeights.add(node1.client(tokenBridgeBrid).currentBlockHeight())
+
+        // Check eif state for account after withdraw as well
+        val expectedState1 = SimpleGtvEncoder.encodeGtv(gtv(
+                gtv(to32Bytes(aliceEvmAddressStr)), // encode gtv array with assumption that the data contains only byte32 and uint256
+                gtv(1 * 2 * 32), // 2 * 32 bytes per entry
+                gtv(to32Bytes(testToken.contractAddress.substring(2))), // encode gtv array with assumption that the data contains only byte32 and uint256
+                gtv(totalDepositedAmount)
+        ))
+        val arg1 = gtv(
+                "blockHeight" to gtv(node1.client(tokenBridgeBrid).currentBlockHeight()),
+                "accountNumber" to gtv(accountNumber.asInteger())
+        )
+
+        val accountState1 = node1.client(tokenBridgeBrid).query("get_account_state_merkle_proof", arg1).asDict()
+
+        val stateData1 = accountState1["stateData"]!!
+        assertEquals(expectedState1.toHex(), stateData1.asByteArray().toHex())
+
+        val balance = node1.client(tokenBridgeBrid).query("ft4.get_asset_balance",
+                gtv("account_id" to gtv(aliceAccountId), "asset_id" to gtv(assetId)))["amount"]!!.asBigInteger()
+        assertEquals(totalDepositedAmount, balance)
+
+        // Get and verify the withdrawal data
+        val withdrawInfo = getLastWithdrawal(aliceEvmAddress)
+        assertEquals(withdrawInfo["amount"]!!.asBigInteger(), withdrawAmount)
+        val serial = withdrawInfo["serial"]!!.asInteger()
+
+        // Query to get the event proof to withdraw fund on evm
+        val eventData = gtv(
+                gtv(serial),
+                gtv(networkId),
+                gtv(to32Bytes(testToken.contractAddress.substring(2))),
+                gtv(to32Bytes(aliceEvmAddressStr)),
+                gtv(withdrawAmount)
+        )
+        val encodedEventData = SimpleGtvEncoder.encodeGtv(eventData)
+        val eventHash = ds.digest(encodedEventData)
+        val eventProof = node1.client(tokenBridgeBrid).query("get_event_merkle_proof",
+                gtv("eventHash" to gtv(eventHash.toHex()))
+        ).toObject<EventMerkleProof>()
+        assertArrayEquals(encodedEventData, eventProof.eventData)
+
+        bridge.setBlockchainRid(Bytes32(tokenBridgeBrid.data)).send()
+
+        // Building a new withdrawal confirmation proof
+        logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
+
+        logger.info { "\trequesting withdrawal using the new confirmation proof" }
+        val receipt = bridge.withdrawRequest(
+                eventProof.web3EventData(),
+                eventProof.web3EventProof(),
+                eventProof.web3BlockHeader(),
+                eventProof.web3Signatures(),
+                eventProof.web3Signers(),
+                eventProof.web3ExtraProofData()
+        ).send()
+        // wait some seconds to allow evm node to mine some new blocks
+        // that mature enough to withdraw requesting fund
+        Awaitility.await().atMost(Duration.TEN_SECONDS).until {
+            val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
+            block.block != null
+        }
+        bridge.withdraw(Bytes32(eventHash), Address(aliceEvmAddressStr)).send()
+        userBalance = testToken.balanceOf(Address(aliceEvmAddressStr)).send()
+        assertEquals(userBalance.value, initialMint - totalDepositedAmount)
+    }
 
     private fun restApiHttpHandler(): HttpHandler {
         return ClientFilters.AcceptGZip(GzipCompressionMode.Streaming()).then(ApacheClient(HttpClients.custom()
@@ -891,98 +894,45 @@ class AnomalyDetectorIT : EifBaseIntegrationTest(
                         .build()).build()))
     }
 
-    private fun sealBlock() {
-        currentBlockHeight += 1
-        buildBlock(DEFAULT_CHAIN_IID)
-        assertEquals(currentBlockHeight, getLastHeight(node))
-    }
-
-    private fun enqueueTx(data: ByteArray) {
-        try {
-            // In a multi-node environment, we need to add tx to each node's txQueue
-            // to ensure that the tx will be included in the next block.
-            nodes.forEach {
-                val engine = it.getBlockchainInstance(DEFAULT_CHAIN_IID).blockchainEngine
-                val tx = engine.getConfiguration().getTransactionFactory().decodeTransaction(data)
-                engine.getTransactionQueue().enqueue(tx)
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "Can't enqueue tx" }
-        }
-    }
-
-    protected fun updateValidatorsInPostchain() {
-        val lastBlockHeight = getLastHeight(node)
-        // replica node[1] becomes a validator
-        val newSigners = listOf(0, 1).associateWith { nodes[it].pubKey.hexStringToByteArray() }
-        val newConfig = loadEifBlockchainConfig().asDict().toMutableMap()
-        newConfig[KEY_SIGNERS] = gtv(newSigners.values.map { gtv(it) })
-
-        // adding a new config at height (last + 2)
-        // (last + 1) will not work because (last + 1) config already loaded by afterCommit handler
-        val newConfigHeight = lastBlockHeight + 2
-        val newRawConfig = GtvEncoder.encodeGtv(gtv(newConfig))
-        addDappBlockchainConfiguration(eifChainId, newRawConfig, newConfigHeight)
-
-        // building at least two blocks to build a block with new signers
-        sealBlock()
-        sealBlock()
-
-        // asserting that new config is loaded
-        val witness = node.blockQueries().getBlockAtHeight(newConfigHeight).get()!!.witness as BaseBlockWitness
-        assertArrayEquals(
-                listOf(nodes[0].pubKey, nodes[1].pubKey).sorted().toTypedArray(),
-                witness.getSignatures().map { it.subjectID.toHex() }.sorted().toTypedArray()
-        )
-        blockQuery = node.getBlockchainInstance().blockchainEngine.getBlockQueries()
-    }
-
-    // This function emulates validator list updating by TransactionSubmitter
-    protected fun updateValidatorsInValidatorContract() {
-        // getting the current validator list
-        val currentValidators = getContractValidatorList()
-
-        // asserting that node0 is the only validator
-        assertArrayEquals(arrayOf(node0EvmAddress), currentValidators.toTypedArray())
-
-        // setting the new validator list: [node0, node1]
-        val newValidators = listOf(node0EvmAddress, node1EvmAddress).sortedBy { it.value }.toTypedArray()
-        val validatorsArg = DynamicArray(Address::class.java, *newValidators)
-        validator.updateValidators(validatorsArg).send()
-
-        // asserting that new validator list is set
-        assertArrayEquals(newValidators, getContractValidatorList().toTypedArray())
-    }
-
-    private fun getContractValidatorList(): List<Address> {
-        val count = validator.validatorCount.send().value.toLong()
-        val validators = mutableListOf<Address>()
-        (0 until count).forEach {
-            validators.add(validator.validators(Uint256(it)).send())
-        }
-        return validators
-    }
-
     private fun getLastWithdrawal(beneficiary: ByteArray): Map<String, Gtv> {
-        val all = blockQuery.query("eif.ft4.get_erc20_withdrawal", gtv(
+        val all = node1.client(tokenBridgeBrid).query("eif.ft4.get_erc20_withdrawal", gtv(
                 "network_id" to gtv(networkId),
                 "token_address" to gtv(testTokenAddress),
                 "beneficiary" to gtv(beneficiary)
-        )).get().asArray()
+        )).asArray()
 
         return all.map { it.asDict() }.maxByOrNull { it["serial"]!!.asInteger() }!!
     }
 
-    private fun loadEifBlockchainConfig(): Gtv = GtvMLParser.parseGtvML(
-            javaClass.getResource("/net/postchain/eif/blockchain_eif_it.xml")!!.readText()
-    )
-
     private fun loadMockedEconomyBlockchainConfig(): Gtv =
-        GtvMLParser.parseGtvML(javaClass.getResource("/net/postchain/eif/blockchain_mocked_ec_it.xml")!!.readText())
+            GtvMLParser.parseGtvML(javaClass.getResource("/net/postchain/eif/blockchain_mocked_ec_it.xml")!!.readText())
 
     private fun restStatus(): List<AnomalyDetectorStatusResponse> {
         val response = restApiHttpHandler.invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/status"))
         assertThat(response.status).isEqualTo(Status.OK)
         return statusBody(response)
     }
+
+    // get smart contract binary from resource
+    fun getBinaryFromArtifactResource(resourcePath: String): String {
+        val artifactFile = javaClass.getResource(resourcePath)?.readText()
+        val artifactJson = GsonBuilder().create().fromJson(artifactFile, JsonObject::class.java)
+        return artifactJson.get("bytecode").asString
+    }
+
+    /**
+     * convert evm address to 32 bytes to compliance with EIF simple gtv encoder
+     * @see SimpleGtvEncoder.encodeGtv
+     */
+    fun to32Bytes(address: String) = "000000000000000000000000$address".hexStringToByteArray()
 }
+
+// Test helper class to override api urls
+class AnomalyContainerClusterManagement(private val delegate: ClusterManagement, private val restApiUrls: List<String>)
+    : ClusterManagement by delegate {
+
+    override fun getBlockchainApiUrls(blockchainRid: BlockchainRid): Collection<String> {
+        return restApiUrls
+    }
+}
+

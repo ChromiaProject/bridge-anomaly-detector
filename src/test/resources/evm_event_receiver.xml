@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<dict>
+    <entry key="blockstrategy">
+        <dict>
+            <entry key="mininterblockinterval">
+                <int>1000</int>
+            </entry>
+            <entry key="name">
+                <string>net.postchain.base.BaseBlockBuildingStrategy</string>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="config_consensus_strategy">
+        <string>HEADER_HASH</string>
+    </entry>
+    <entry key="configurationfactory">
+        <string>net.postchain.gtx.GTXBlockchainConfigurationFactory</string>
+    </entry>
+    <entry key="eif">
+        <dict>
+            <entry key="chains">
+                <dict>
+                    <entry key="ethereum">
+                        <dict>
+                            <entry key="contracts">
+                                <array>
+                                    <string>0x39615b16b74589919c9ce1ea73f1fc5d53141a78</string>
+                                </array>
+                            </entry>
+                            <entry key="events">
+                                <array>
+                                    <dict>
+                                        <entry key="anonymous">
+                                            <int>0</int>
+                                        </entry>
+                                        <entry key="inputs">
+                                            <array>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>1</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>address</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>sender</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>address</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>1</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>contract IERC20</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>token</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>address</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>0</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>uint256</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>networkId</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>uint256</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>0</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>uint256</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>amount</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>uint256</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>0</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>string</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>name</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>string</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>0</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>string</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>symbol</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>string</string>
+                                                    </entry>
+                                                </dict>
+                                                <dict>
+                                                    <entry key="indexed">
+                                                        <int>0</int>
+                                                    </entry>
+                                                    <entry key="internalType">
+                                                        <string>uint8</string>
+                                                    </entry>
+                                                    <entry key="name">
+                                                        <string>decimals</string>
+                                                    </entry>
+                                                    <entry key="type">
+                                                        <string>uint8</string>
+                                                    </entry>
+                                                </dict>
+                                            </array>
+                                        </entry>
+                                        <entry key="name">
+                                            <string>DepositedERC20</string>
+                                        </entry>
+                                        <entry key="type">
+                                            <string>event</string>
+                                        </entry>
+                                    </dict>
+                                </array>
+                            </entry>
+                            <entry key="evm_read_offset">
+                                <int>0</int>
+                            </entry>
+                            <entry key="network_id">
+                                <int>1337</int>
+                            </entry>
+                            <entry key="read_offset">
+                                <int>0</int>
+                            </entry>
+                            <entry key="skip_to_height">
+                                <int>0</int>
+                            </entry>
+                        </dict>
+                    </entry>
+                </dict>
+            </entry>
+            <entry key="snapshot">
+                <dict>
+                    <entry key="levels_per_page">
+                        <int>2</int>
+                    </entry>
+                    <entry key="snapshots_to_keep">
+                        <int>2</int>
+                    </entry>
+                </dict>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="gtx">
+        <dict>
+            <entry key="modules">
+                <array>
+                    <string>net.postchain.rell.module.RellPostchainModuleFactory</string>
+                    <string>net.postchain.gtx.StandardOpsGTXModule</string>
+                    <string>net.postchain.eif.EifGTXModule</string>
+                    <string>net.postchain.d1.icmf.IcmfSenderGTXModule</string>
+                </array>
+            </entry>
+            <entry key="rell">
+                <dict>
+                    <entry key="modules">
+                        <array>
+                            <string>eif_event_receiver_chain</string>
+                        </array>
+                    </entry>
+                    <entry key="sources">
+                        <dict>
+                            <entry key="eif_event_receiver_chain/messaging/module.rell">
+                                <string>module;
+
+val evm_block_events_topic = "L_evm_block_events";
+
+struct evm_block_message {
+    network_id: integer;
+    evm_block_height: integer;
+    evm_block_hash: byte_array;
+    events: list&lt;event_data&gt;;
+}
+
+struct event_data {
+    tnx_hash: byte_array;
+    log_index: integer;
+    signature: byte_array;
+    contract_address: byte_array;
+    name: text;
+    indexed_values: list&lt;gtv&gt;;
+    non_indexed_values: list&lt;gtv&gt;;
+}
+</string>
+                            </entry>
+                            <entry key="eif_event_receiver_chain/model/module.rell">
+                                <string>module;
+
+entity evm_block {
+    network_id: integer;
+    evm_block_height: integer;
+    evm_block_hash: byte_array;
+    key network_id, evm_block_height, evm_block_hash;
+}
+
+entity evm_event {
+    index evm_block;
+    tnx_hash: byte_array;
+    log_index: integer;
+    event_signature: byte_array;
+    contract_address: byte_array;
+    indexed_values: byte_array;
+    non_indexed_values: byte_array;
+}
+</string>
+                            </entry>
+                            <entry key="eif_event_receiver_chain/module.rell">
+                                <string>module;
+
+import lib.icmf;
+import .messaging.*;
+import .model.*;
+import .queries.*;
+
+operation __evm_block(
+    network_id: integer,
+    evm_block_height: integer,
+    evm_block_hash: byte_array,
+    events: list&lt;event_data&gt;
+) {
+    _evm_block(network_id, evm_block_height, evm_block_hash, events);
+}
+
+function _evm_block(
+    network_id: integer,
+    evm_block_height: integer,
+    evm_block_hash: byte_array,
+    events: list&lt;event_data&gt;
+) {
+
+    if (exists(evm_block @? { .network_id == network_id, evm_block_height })) {
+        log("Block %d with RID %s for chain %s already received".format(evm_block_height, evm_block_hash, network_id));
+    }
+
+    val block = create evm_block (
+        network_id,
+        evm_block_height,
+        evm_block_hash
+    );
+
+    val relevant_events = list&lt;event_data&gt;();
+    for (event in events) {
+        // validate network id
+        val event_network_id = integer.from_gtv(event.non_indexed_values[0]);
+        if (network_id != event_network_id) {
+            log("Ignoring event with invalid network_id: expected: %d, actual: %d".format(network_id, event_network_id));
+            continue;
+        }
+
+        create evm_event (
+            evm_block = block,
+            tnx_hash = event.tnx_hash,
+            log_index = event.log_index,
+            event_signature = event.signature,
+            contract_address = event.contract_address,
+            indexed_values = event.indexed_values.to_gtv().to_bytes(),
+            non_indexed_values = event.non_indexed_values.to_gtv().to_bytes()
+        );
+
+        relevant_events.add(event);
+    }
+
+    val message = evm_block_message(
+        network_id,
+        evm_block_height,
+        evm_block_hash,
+        relevant_events
+    );
+
+    icmf.send_message(evm_block_events_topic, message.to_gtv());
+}
+</string>
+                            </entry>
+                            <entry key="eif_event_receiver_chain/queries/module.rell">
+                                <string>module;
+
+import ^.model.*;
+
+query get_last_evm_block(network_id: integer) {
+    return evm_block @? { network_id } ( @sort_desc .evm_block_height, .evm_block_hash ) limit 1;
+}
+</string>
+                            </entry>
+                            <entry key="lib/icmf/constants.rell">
+                                <string>module;
+
+val ICMF_MESSAGE_MAX_SIZE = 16 * 1024 * 1024; // 16 MiB
+val ICMF_TOPIC_GLOBAL_PREFIX = "G_";
+val ICMF_TOPIC_LOCAL_PREFIX = "L_";</string>
+                            </entry>
+                            <entry key="lib/icmf/module.rell">
+                                <string>module;
+
+import .constants.*;
+
+function send_message(topic: text, body: gtv) {
+    val encoded_body = body.to_bytes();
+    require(topic.starts_with(ICMF_TOPIC_GLOBAL_PREFIX) or topic.starts_with(ICMF_TOPIC_LOCAL_PREFIX),
+        "Topic must start with " + ICMF_TOPIC_GLOBAL_PREFIX + " or " + ICMF_TOPIC_LOCAL_PREFIX);
+    require(encoded_body.size() &lt; ICMF_MESSAGE_MAX_SIZE, "Message body too big, max size is %d bytes".format(ICMF_MESSAGE_MAX_SIZE));
+
+    op_context.emit_event("icmf_message", (topic = topic, body = body).to_gtv_pretty());
+}
+</string>
+                            </entry>
+                        </dict>
+                    </entry>
+                    <entry key="strictGtvConversion">
+                        <int>0</int>
+                    </entry>
+                    <entry key="version">
+                        <string>0.13.10</string>
+                    </entry>
+                </dict>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="revolt">
+        <dict>
+            <entry key="fast_revolt_status_timeout">
+                <int>2000</int>
+            </entry>
+        </dict>
+    </entry>
+    <entry key="sync_ext">
+        <array>
+            <string>net.postchain.eif.EifSynchronizationInfrastructureExtension</string>
+        </array>
+    </entry>
+</dict>

@@ -20,9 +20,7 @@ import org.web3j.protocol.core.methods.response.EthLog
 import org.web3j.protocol.core.methods.response.Log
 
 /**
- * Reads logs from evm chain
- *
- * @param readOffset We will read this amount of blocks from the block head on the evm chain, to avoid issues with chain reorg
+ * Reads logs from evm chain and calls the given onLog function on each log entry.
  */
 class EvmLogProcessor(
         private val logProcessorConfig: LogProcessorConfig,

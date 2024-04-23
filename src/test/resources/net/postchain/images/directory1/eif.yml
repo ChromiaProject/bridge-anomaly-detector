@@ -1,0 +1,119 @@
+blockchains:
+  evm_event_receiver:
+    module: eif_event_receiver_chain
+    config:
+      gtx:
+        modules:
+          - "net.postchain.eif.EifGTXModule"
+          - "net.postchain.d1.icmf.IcmfSenderGTXModule"
+      sync_ext:
+        - "net.postchain.eif.EifSynchronizationInfrastructureExtension"
+      eif:
+        snapshot:
+          levels_per_page: 2
+          snapshots_to_keep: 2
+        chains:
+          ethereum:
+            network_id: 1337
+            contracts:
+              - '0x39615b16b74589919c9ce1ea73f1fc5d53141a78'
+            skip_to_height: 0
+            evm_read_offset: 0
+            read_offset: 0
+            events: !include events.yml
+  evm_token_bridge:
+    module: main
+    config:
+      gtx:
+        modules:
+          - "net.postchain.eif.EifGTXModule"
+          - "net.postchain.d1.icmf.IcmfReceiverGTXModule"
+      sync_ext:
+        - "net.postchain.d1.icmf.IcmfReceiverSynchronizationInfrastructureExtension"
+      icmf:
+        receiver:
+          local:
+            - topic: L_evm_block_events
+              bc-rid: ICMF_SENDER_BRID
+    moduleArgs:
+      lib.ft4.accounts:
+        rate_limit:
+          active: true
+          max_points: 200
+          recovery_time: 5000
+          points_at_account_creation: 100
+      lib.ft4.admin:
+        admin_pubkey: 0350fe40766bc0ce8d08b3f5b810e49a8352fdd458606bd5fafe5acdcdc8ff3f57
+      lib.access.admin:
+        admin_pubkey: 0350fe40766bc0ce8d08b3f5b810e49a8352fdd458606bd5fafe5acdcdc8ff3f57
+  transaction_submitter:
+    module: transaction_submitter
+    moduleArgs:
+      transaction_submitter:
+        manual_admins: [ ] # List of public keys that are allowed to reset failed signer list updates
+        genesis_node: x"0350fe40766bc0ce8d08b3f5b810e49a8352fdd458606bd5fafe5acdcdc8ff3f57" # This will be the initial signer for system chains
+        directory_chain_config:
+          blockchain_rid: x"DIRECTORY_CHAIN_BRID_VALUE" # Replace with directory chain brid
+          validator_contracts:
+            - address: "DIRECTORY_CHAIN_VALIDATOR_VALUE"
+              network_id: 1337
+        # Omit this to disable anchoring
+        system_anchoring_chain_config:
+          blockchain_rid: x"SYSTEM_ANCHORING_CHAIN_BRID_VALUE" # Replace with system anchoring chain brid
+          anchoring_contracts:
+            - address: "ANCHORING_CONTRACT_VALUE"
+              validator_contract: "VALIDATOR_CONTRACT_VALUE"
+              network_id: 1337
+        # Here we can add all system chain bridges
+        system_chain_bridges: [ ]
+        #          - blockchain_rid: x"" # Replace with economy chain brid & contracts
+        #            bridge_contracts:
+        #              - address: "ec_bridge_contract"
+        #                validator_contract: "ec_validator_contract"
+        #                network_id: 5
+        contract_tx_rate_limit: 60000
+        tx_timeout: 86400000 #24h
+        node_retry_strategy: SUPERMAJORITY
+        network_configs:
+          - id: 1337
+            currency_symbol: "ETH"
+        system_max_priority_fee_per_gas: 1000000000
+        system_max_fee_per_gas: 4000000000
+      transaction_submitter.anchoring:
+        anchoring_interval: 5_000 # 1 per hour
+    config:
+      blockstrategy:
+        maxblocktime: 2000
+      gtx:
+        modules:
+          - "net.postchain.eif.transaction.TransactionSubmitterGTXModule"
+          - "net.postchain.d1.icmf.IcmfReceiverGTXModule"
+          - "net.postchain.d1.icmf.IcmfSenderGTXModule"
+      transaction_submitter:
+        chains:
+          goerli:
+            network_id: 1337
+            max_gas_price: 4100000000
+            min_wallet_balance: 100000000000
+        node_tx_timeout: 86400000 #24h
+        gas_limit: 9000000
+        node_tx_verification_evm_blocks: 10
+        tx_verification_time: 20000
+      sync_ext:
+        - "net.postchain.eif.transaction.TransactionSubmitterSynchronizationInfrastructureExtension"
+        - "net.postchain.d1.icmf.IcmfReceiverSynchronizationInfrastructureExtension"
+      icmf:
+        receiver:
+          directory-chain:
+            topics:
+              - L_signer_list_update
+#          local:
+#            - bc-rid: "DIRECTORY_CHAIN_BRID_VALUE" # Replace with economy chain brid
+#              topic: "L_bridge_mapping"
+          global:
+            topics:
+              - G_evm_submit_transaction
+
+compile:
+  rellVersion: 0.13.10
+  strictGtvConversion: false
