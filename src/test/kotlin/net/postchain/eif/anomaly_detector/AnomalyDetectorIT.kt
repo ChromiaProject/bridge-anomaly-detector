@@ -118,6 +118,7 @@ import org.web3j.tx.Transfer
 import org.web3j.tx.gas.DefaultGasProvider
 import org.web3j.tx.response.PollingTransactionReceiptProcessor
 import org.web3j.utils.Convert
+import org.web3j.utils.RevertReasonExtractor
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.MessageDigest
@@ -212,7 +213,9 @@ class AnomalyDetectorIT : ManagedModeTest() {
                     }
 
             // Web3j
+
             web3j = Web3j.build(HttpService(evmContainer.getExternalGethUrl()))
+
             transactionManager = FastRawTransactionManager(
                     web3j,
                     Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
@@ -861,10 +864,7 @@ class AnomalyDetectorIT : ManagedModeTest() {
 
         bridge.setBlockchainRid(Bytes32(tokenBridgeBrid.data)).send()
 
-        // Building a new withdrawal confirmation proof
-        logger.info { "\tbuilding a new withdrawal confirmation proof using the new validator list" }
-
-        logger.info { "\trequesting withdrawal using the new confirmation proof" }
+        logger.info { "\trequesting withdrawal using the confirmation proof" }
         val receipt = bridge.withdrawRequest(
                 eventProof.web3EventData(),
                 eventProof.web3EventProof(),
@@ -879,7 +879,11 @@ class AnomalyDetectorIT : ManagedModeTest() {
             val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(receipt.blockNumber.add(BigInteger.TWO)), false).send()
             block.block != null
         }
-        bridge.withdraw(Bytes32(eventHash), Address(aliceEvmAddressStr)).send()
+        val withdrawReceipt = bridge.withdraw(Bytes32(eventHash), Address(aliceEvmAddressStr)).send()
+        val retrieveRevertReason = RevertReasonExtractor.extractRevertReason(withdrawReceipt, bridge.contractAddress, web3j, true, BigInteger.valueOf(1121212121212))
+
+        logger.info { "retrieveRevertReason: $retrieveRevertReason" }
+
         userBalance = testToken.balanceOf(Address(aliceEvmAddressStr)).send()
         assertEquals(userBalance.value, initialMint - totalDepositedAmount)
     }
