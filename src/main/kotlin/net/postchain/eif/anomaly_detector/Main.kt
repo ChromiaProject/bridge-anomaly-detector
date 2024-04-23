@@ -1,5 +1,6 @@
 package net.postchain.eif.anomaly_detector
 
+import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.eif.anomaly_detector.config.AppConfig
 import net.postchain.eif.anomaly_detector.config.RestApiConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
@@ -26,6 +27,8 @@ fun main(args: Array<String>) {
     anomalyDetectorsManager.start()
 
     startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)
+
+    logger.info { "Bridge anomaly detector is running" }
 }
 
 fun startRestApi(restApiConfig: RestApiConfig, anomalyDetectorsManager: AnomalyDetectorsManager): RestApi? {

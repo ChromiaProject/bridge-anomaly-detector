@@ -8,14 +8,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.slf4j.MDCContext
+import net.postchain.chain0.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.client.config.PostchainClientConfig
+import net.postchain.client.core.PostchainQuery
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.impl.PostchainClientProviderImpl
 import net.postchain.client.request.EndpointPool
+import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
 import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
-import net.postchain.economy.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
+import net.postchain.d1.cluster.ClusterManagement
 import net.postchain.eif.anomaly_detector.config.AppConfig
 import net.postchain.eif.anomaly_detector.config.EvmClientConfig
 import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
@@ -26,8 +29,14 @@ import kotlin.coroutines.cancellation.CancellationException
 
 class AnomalyDetectorsManager(
         private val appConfig: AppConfig,
-        private val web3jClientsManager: Web3jClientsManager
+        private val web3jClientsManager: Web3jClientsManager,
+        private val clusterManagementProvider: (PostchainQuery) -> ClusterManagement
 ) {
+
+    constructor(
+            appConfig: AppConfig,
+            web3jClientsManager: Web3jClientsManager,
+    ) : this(appConfig, web3jClientsManager, ::ClusterManagementImpl)
 
     private val anomalyDetectors = mutableMapOf<String, AnomalyDetector>()
     private lateinit var bridgeMonitorJob: Job
@@ -61,10 +70,34 @@ class AnomalyDetectorsManager(
 
         val blockchainsToMonitor = getBlockchainsToMonitor(appConfig)
         val detectorsToStop = getBlockchainsToStop(blockchainsToMonitor)
-        val blockchainsToStart = getBlockchainsToStart(blockchainsToMonitor)
+        val blockchainsToStart = getBlockchainsToStart(blockchainsToMonitor).filter { appConfig.bypassBlockchainSyncCheck || blockchainSyncCheck(it) }
 
         stopDetectors(detectorsToStop)
         startDetectors(blockchainsToStart)
+    }
+
+    private fun blockchainSyncCheck(blockchain: Blockchain): Boolean {
+        try {
+            val blockchainPostchainClient = createPostchainClient(appConfig.nodeUrl, blockchain.blockchainRid)
+            val currentBlockHeight = blockchainPostchainClient.currentBlockHeight()
+            val directoryChainRID = blockchainPostchainClient.getBlockchainRID(0)
+            val directoryChainPostchainClient = createPostchainClient(appConfig.nodeUrl, directoryChainRID.data)
+            val clusterManagement = clusterManagementProvider(directoryChainPostchainClient)
+            val blockchainApiUrls = clusterManagement.getBlockchainApiUrls(BlockchainRid(blockchain.blockchainRid))
+            val highestBlockheightOverNodes = blockchainApiUrls
+                    .map { createPostchainClient(it, blockchain.blockchainRid) }
+                    .map { it.currentBlockHeight() }
+                    .max()
+
+            if (highestBlockheightOverNodes - currentBlockHeight > appConfig.blockchainSyncMargin) {
+                logger.info { "Anomaly detector won't start for brid: ${blockchain.blockchainRid.toHex()} because blockchain is syncing." }
+                return false
+            }
+            return true
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to sync check blockchain: ${blockchain.blockchainRid.toHex()} with error: ${e.message}" }
+            return false
+        }
     }
 
     private fun startDetectors(blockchainsToStart: List<Blockchain>) {
