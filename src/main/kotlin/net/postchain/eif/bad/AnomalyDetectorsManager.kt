@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector
+package net.postchain.eif.bad
 
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
@@ -19,11 +19,11 @@ import net.postchain.common.BlockchainRid
 import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
 import net.postchain.d1.cluster.ClusterManagement
-import net.postchain.eif.anomaly_detector.config.AppConfig
-import net.postchain.eif.anomaly_detector.config.EvmClientConfig
-import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
-import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
-import net.postchain.eif.anomaly_detector.evm.Web3jServiceFactory.buildServices
+import net.postchain.eif.bad.config.AppConfig
+import net.postchain.eif.bad.config.EvmClientConfig
+import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.Web3jRequestHandler
+import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -123,7 +123,7 @@ class AnomalyDetectorsManager(
                         client,
                         postchainClient,
                         blockchainToMonitor.bridgeContract,
-                        blockchainToMonitor.evmNetworkId
+                        blockchainToMonitor.evmNetworkId,
                 )
                 anomalyDetectors[blockchainToMonitor.blockchainRid.toHex()] = anomalyDetector
                 anomalyDetector.start()

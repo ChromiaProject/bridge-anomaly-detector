@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.evm
+package net.postchain.eif.bad.evm
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
@@ -37,6 +37,4 @@ open class Web3jRequestHandler(
     override fun close() {
         web3jServices.forEach { it.shutdown() }
     }
-
-    fun getClient(): Web3j = web3jServices.first()
 }

@@ -27,13 +27,6 @@ tar -zxvf bridge-anomaly-detector-<version>-dist.tar.gz
 ./bridge-anomaly-detector/bin/bad <config file>
 ```
 
-# TODO
-
-- start only if node has built a block - if possible.
-- add randomness +- 1-5 minutes to reduce risk of sending pause tx at the same time?
-- Pull full EC for testing (not using the current mocked version)?
-- Integration test in postchain-chromia?
-
 ## Copyright & License information
 
 Copyright (c) 2017–2024 ChromaWay AB. All rights reserved.

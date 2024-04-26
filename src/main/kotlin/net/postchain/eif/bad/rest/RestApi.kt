@@ -1,10 +1,11 @@
-package net.postchain.eif.anomaly_detector.rest
+package net.postchain.eif.bad.rest
 
 import mu.KLogging
 import net.postchain.common.toHex
-import net.postchain.eif.anomaly_detector.AnomalyDetector
-import net.postchain.eif.anomaly_detector.AnomalyDetectorsManager
-import net.postchain.eif.anomaly_detector.LogVerificationStatus
+import net.postchain.eif.bad.AnomalyDetector
+import net.postchain.eif.bad.AnomalyDetectorStatus
+import net.postchain.eif.bad.AnomalyDetectorsManager
+import net.postchain.eif.bad.LogVerificationStatus
 import org.http4k.core.Body
 import org.http4k.core.Filter
 import org.http4k.core.Method.GET
@@ -39,7 +40,7 @@ data class ErrorBody(val error: String = "")
 data class Version(val version: Int)
 data class AnomalyDetectorStatusResponse(
         val blockchainRid: String,
-        val status: net.postchain.eif.anomaly_detector.AnomalyDetectorStatus,
+        val status: AnomalyDetectorStatus,
         val networkId: Long,
         val tokenBridgeContractAddresses: String,
         val logsProcessed: Long,

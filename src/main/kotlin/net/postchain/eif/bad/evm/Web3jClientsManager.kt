@@ -1,8 +1,8 @@
-package net.postchain.eif.anomaly_detector.evm
+package net.postchain.eif.bad.evm
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
-import net.postchain.eif.anomaly_detector.config.EvmConfig
+import net.postchain.eif.bad.config.EvmConfig
 
 class Web3jClientsManager(
         private val evmConfigs: Map<Long, EvmConfig>

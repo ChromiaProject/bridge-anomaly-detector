@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.evm
+package net.postchain.eif.bad.evm
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.slf4j.MDCContext
 import mu.KLogging
 import net.postchain.common.exception.ProgrammerMistake
-import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
+import net.postchain.eif.bad.config.LogProcessorConfig
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.Event
 import org.web3j.protocol.core.DefaultBlockParameter
