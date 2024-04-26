@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector
+package net.postchain.eif.bad
 
 import assertk.assertThat
 import assertk.assertions.isEqualTo
@@ -49,15 +49,14 @@ import net.postchain.dapp.postTransactionUntilConfirmed
 import net.postchain.devtools.ManagedModeTest
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.SimpleGtvEncoder
-import net.postchain.eif.anomaly_detector.config.AppConfig
-import net.postchain.eif.anomaly_detector.config.EvmClientConfig
-import net.postchain.eif.anomaly_detector.config.EvmConfig
-import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
-import net.postchain.eif.anomaly_detector.config.TimeoutConfig
-import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
-import net.postchain.eif.anomaly_detector.rest.AnomalyDetectorStatusResponse
-import net.postchain.eif.anomaly_detector.rest.statusBody
-import net.postchain.eif.bad.GethContainer
+import net.postchain.eif.bad.config.AppConfig
+import net.postchain.eif.bad.config.EvmClientConfig
+import net.postchain.eif.bad.config.EvmConfig
+import net.postchain.eif.bad.config.LogProcessorConfig
+import net.postchain.eif.bad.config.TimeoutConfig
+import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.rest.AnomalyDetectorStatusResponse
+import net.postchain.eif.bad.rest.statusBody
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
@@ -90,7 +89,6 @@ import org.http4k.core.then
 import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
@@ -304,7 +302,6 @@ class AnomalyDetectorIT : ManagedModeTest() {
         bridge.allowToken(Address(testToken.contractAddress)).send()
     }
 
-
     @Test
     @Order(1)
     fun `Setup the network`() {
@@ -412,6 +409,7 @@ class AnomalyDetectorIT : ManagedModeTest() {
                 TimeoutConfig(
                         missingHeightRetryDelay = 0,
                         pauseDelay = 0,
+                        0
                 )
         )
 
@@ -883,6 +881,7 @@ class AnomalyDetectorIT : ManagedModeTest() {
         val retrieveRevertReason = RevertReasonExtractor.extractRevertReason(withdrawReceipt, bridge.contractAddress, web3j, true, BigInteger.valueOf(1121212121212))
 
         logger.info { "retrieveRevertReason: $retrieveRevertReason" }
+        logger.info { "revertReason: ${withdrawReceipt.revertReason}" }
 
         userBalance = testToken.balanceOf(Address(aliceEvmAddressStr)).send()
         assertEquals(userBalance.value, initialMint - totalDepositedAmount)

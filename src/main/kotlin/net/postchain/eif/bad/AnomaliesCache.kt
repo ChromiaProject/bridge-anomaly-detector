@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector
+package net.postchain.eif.bad
 
 import okhttp3.internal.toImmutableList
 import org.web3j.protocol.core.methods.response.Log

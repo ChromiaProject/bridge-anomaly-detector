@@ -1,9 +1,9 @@
-package net.postchain.eif.anomaly_detector.config
+package net.postchain.eif.bad.config
 
 import net.postchain.common.config.getEnvOrListProperty
 import net.postchain.common.config.getEnvOrStringProperty
 import net.postchain.common.exception.UserMistake
-import net.postchain.eif.anomaly_detector.config.AppConfig.Companion.EVM_PREFIX
+import net.postchain.eif.bad.config.AppConfig.Companion.EVM_PREFIX
 import org.apache.commons.configuration2.PropertiesConfiguration
 import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
 import org.apache.commons.configuration2.builder.fluent.Parameters

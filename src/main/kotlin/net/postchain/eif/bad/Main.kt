@@ -1,10 +1,10 @@
-package net.postchain.eif.anomaly_detector
+package net.postchain.eif.bad
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
-import net.postchain.eif.anomaly_detector.config.AppConfig
-import net.postchain.eif.anomaly_detector.config.RestApiConfig
-import net.postchain.eif.anomaly_detector.evm.Web3jClientsManager
-import net.postchain.eif.anomaly_detector.rest.RestApi
+import net.postchain.eif.bad.config.AppConfig
+import net.postchain.eif.bad.config.RestApiConfig
+import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.rest.RestApi
 import java.io.File
 
 data class Blockchain(

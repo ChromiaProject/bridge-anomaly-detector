@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.config
+package net.postchain.eif.bad.config
 
 import net.postchain.common.config.getEnvOrBooleanProperty
 import net.postchain.common.config.getEnvOrIntProperty

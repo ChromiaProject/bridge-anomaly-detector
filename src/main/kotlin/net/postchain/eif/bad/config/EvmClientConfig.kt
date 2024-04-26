@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.config
+package net.postchain.eif.bad.config
 
 import net.postchain.common.config.getEnvOrLongProperty
 import org.apache.commons.configuration2.Configuration

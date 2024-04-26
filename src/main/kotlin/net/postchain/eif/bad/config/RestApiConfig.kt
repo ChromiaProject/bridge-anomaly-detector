@@ -1,9 +1,7 @@
-package net.postchain.eif.anomaly_detector.config
+package net.postchain.eif.bad.config
 
-import net.postchain.common.config.Config
 import net.postchain.common.config.getEnvOrLongProperty
 import org.apache.commons.configuration2.Configuration
-import java.util.concurrent.TimeUnit
 
 data class RestApiConfig(
         val basePath: String = "/",

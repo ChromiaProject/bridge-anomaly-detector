@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.evm
+package net.postchain.eif.bad.evm
 
 import okhttp3.OkHttpClient
 import org.web3j.protocol.Web3j

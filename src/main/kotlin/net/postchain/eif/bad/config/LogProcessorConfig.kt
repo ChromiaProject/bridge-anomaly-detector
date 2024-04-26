@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector.config
+package net.postchain.eif.bad.config
 
 data class LogProcessorConfig(
         val readOffset: Long,

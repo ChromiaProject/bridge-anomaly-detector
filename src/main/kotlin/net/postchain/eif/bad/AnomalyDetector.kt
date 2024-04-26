@@ -1,4 +1,4 @@
-package net.postchain.eif.anomaly_detector
+package net.postchain.eif.bad
 
 import io.reactivex.disposables.Disposable
 import mu.withLoggingContext
@@ -7,11 +7,11 @@ import net.postchain.client.core.PostchainClient
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.toHex
-import net.postchain.eif.anomaly_detector.config.LogProcessorConfig
-import net.postchain.eif.anomaly_detector.config.TimeoutConfig
-import net.postchain.eif.anomaly_detector.evm.EvmLogProcessor
-import net.postchain.eif.anomaly_detector.evm.Web3jClient
-import net.postchain.eif.anomaly_detector.evm.Web3jRequestHandler
+import net.postchain.eif.bad.config.LogProcessorConfig
+import net.postchain.eif.bad.config.TimeoutConfig
+import net.postchain.eif.bad.evm.EvmLogProcessor
+import net.postchain.eif.bad.evm.Web3jClient
+import net.postchain.eif.bad.evm.Web3jRequestHandler
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
@@ -19,6 +19,7 @@ import org.web3j.protocol.core.methods.response.Log
 import org.web3j.tx.Contract
 import java.math.BigInteger
 import java.util.concurrent.TimeUnit
+import kotlin.random.Random
 
 
 enum class AnomalyDetectorStatus {
@@ -151,9 +152,10 @@ class AnomalyDetector(
             logWarn { "Height ${logVerification.height} not found in node" }
 
             if (retry) {
-                logWarn { "Retry in ${getLogTime(timeoutConfig.missingHeightRetryDelay)}" }
+                val delay = timeoutConfig.missingHeightRetryDelay + getRandomDelay()
+                logWarn { "Retry in ${getLogTime(delay)}" }
 
-                anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, timeoutConfig.missingHeightRetryDelay) {
+                anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, delay) {
                     verifyHeight(logVerification, false)
                 }
             } else {
@@ -176,9 +178,10 @@ class AnomalyDetector(
 
         } else {
 
-            logError { "Anomaly detected - log index ${logVerification.log.logIndex} referees to block at height ${logVerification.height} with brid ${logVerification.brid.toHex()} but local brid is ${blockAtHeight.rid.toHex()} - token bridge contract will be paused in ${getLogTime(timeoutConfig.pauseDelay)}" }
+            val delay = timeoutConfig.pauseDelay + getRandomDelay()
+            logError { "Anomaly detected - log index ${logVerification.log.logIndex} referees to block at height ${logVerification.height} with brid ${logVerification.brid.toHex()} but local brid is ${blockAtHeight.rid.toHex()} - token bridge contract will be paused in ${getLogTime(delay)}" }
 
-            anomaliesCache.schedule(logVerification, LogVerificationStatus.ANOMALY, timeoutConfig.pauseDelay) {
+            anomaliesCache.schedule(logVerification, LogVerificationStatus.ANOMALY, delay) {
                 pauseTokenBridge()
             }
 
@@ -233,5 +236,12 @@ class AnomalyDetector(
         withLoggingContext("bcRid" to blockchainRid.toShortHex()) {
             levelFunction(msg)
         }
+    }
+
+    private fun getRandomDelay(): Long {
+        if (timeoutConfig.maxRandomDelay > 0) {
+            return Random.nextLong(0, timeoutConfig.maxRandomDelay)
+        }
+        return 0
     }
 }

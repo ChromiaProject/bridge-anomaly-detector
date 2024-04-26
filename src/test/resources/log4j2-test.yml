@@ -15,22 +15,27 @@ Configuration:
     File:
       - name: FileAppender
         fileName: "logs/test.log"
+        append: false
         PatternLayout:
           pattern: ${pattern}
       - name: EvmEventReceiver_EvmContainerAppender
         fileName: "logs/evm_container.log"
+        append: false
         PatternLayout:
           pattern: "%msg%n"
       - name: EvmEventReceiver_Node1Appender
         fileName: "logs/node1.log"
+        append: false
         PatternLayout:
           pattern: "%msg%n"
       - name: EvmEventReceiver_Node2Appender
         fileName: "logs/node2.log"
+        append: false
         PatternLayout:
           pattern: "%msg%n"
       - name: EvmEventReceiver_Node3Appender
         fileName: "logs/node3.log"
+        append: false
         PatternLayout:
           pattern: "%msg%n"
 

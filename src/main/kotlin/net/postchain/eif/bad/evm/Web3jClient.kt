@@ -1,9 +1,9 @@
-package net.postchain.eif.anomaly_detector.evm
+package net.postchain.eif.bad.evm
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
-import net.postchain.eif.anomaly_detector.config.EvmConfig
-import net.postchain.eif.anomaly_detector.evm.Web3jServiceFactory.buildServices
+import net.postchain.eif.bad.config.EvmConfig
+import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.protocol.Web3j
 import org.web3j.protocol.core.RemoteFunctionCall
