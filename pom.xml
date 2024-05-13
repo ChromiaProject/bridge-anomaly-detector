@@ -29,8 +29,8 @@
         <rell.maven.plugin.version>0.11.11</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <web3j.version>4.11.2</web3j.version>
-        <web3j-plugin.version>4.11.1</web3j-plugin.version>
+        <web3j.version>4.11.3</web3j.version>
+        <web3j-plugin.version>4.11.3</web3j-plugin.version>
         <log4j.version>2.23.1</log4j.version>
         <jackson.version>2.17.0</jackson.version>
 
