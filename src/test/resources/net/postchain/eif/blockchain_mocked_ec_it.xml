@@ -63,9 +63,11 @@ operation add_anomaly_detection(blockchain_rid: byte_array, evm_network_id: inte
         .evm_network_id = evm_network_id,
         .bridge_contract = bridge_contract
     );
+    log("Added bridge lease for bcrid %s, network %s and bridge %s".format(blockchain_rid, evm_network_id, bridge_contract));
 }
 operation remove_anomaly_detection(blockchain_rid: byte_array) {
     delete bridge_lease @* { blockchain_rid };
+    log("Removed bridge lease for %s".format(blockchain_rid));
 }
 </string>
                             </entry>
