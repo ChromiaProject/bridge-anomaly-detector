@@ -510,9 +510,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>
-                                registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.1@sha256:def7ecec42cdc4545be824e539bc5802f89a3eff618b9194a6c02e2d28910f4a
-                            </image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-quota:1.0.2@sha256:b2eb6b6ce3ad78ccd8b7b035cc7c90b40b3d48e73b911a4d15595c57d5497569</image>
                         </from>
                         <container>
                             <appRoot>/opt/chromaway/bad</appRoot>
