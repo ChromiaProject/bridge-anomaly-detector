@@ -48,6 +48,7 @@
         <gitlab.registry>registry.gitlab.com/chromaway/core/bridge-anomaly-detector</gitlab.registry>
         <docker.cache>/tmp/docker-cache</docker.cache>
         <image.name>bridge-anomaly-detector</image.name>
+        <image.latest_tag>latest_snapshot</image.latest_tag>
         <image.platforms>linux/amd64,linux/arm64</image.platforms>
 
         <!-- test -->
@@ -498,7 +499,6 @@
                     </execution>
                 </executions>
             </plugin>
-
         </plugins>
 
         <pluginManagement>
@@ -693,10 +693,9 @@
                                             </platforms>
                                         </from>
                                         <to>
-                                            <image>${gitlab.registry}/${image.name}</image>
+                                            <image>${gitlab.registry}/${image.name}:${project.version}</image>
                                             <tags>
-                                                <tag>latest</tag>
-                                                <tag>${project.version}</tag>
+                                                <tag>${image.latest_tag}</tag>
                                             </tags>
                                             <auth>
                                                 <username>${env.CI_REGISTRY_USER}</username>
