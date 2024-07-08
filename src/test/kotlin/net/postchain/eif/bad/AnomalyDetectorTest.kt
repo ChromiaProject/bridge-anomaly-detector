@@ -14,8 +14,10 @@ import net.postchain.devtools.ManagedModeTest
 import net.postchain.eif.SimpleGtvEncoder
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.rest.AnomaliesResponse
 import net.postchain.eif.bad.rest.AnomalyDetectorStatusResponse
 import net.postchain.eif.bad.rest.RestApi
+import net.postchain.eif.bad.rest.anomaliesBody
 import net.postchain.eif.bad.rest.statusBody
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
@@ -72,7 +74,7 @@ abstract class AnomalyDetectorTest : ManagedModeTest() {
     lateinit var anomalyDetectorsManager: AnomalyDetectorsManager
     lateinit var restApi: RestApi
 
-    fun restApiHttpHandler(): HttpHandler {
+    private fun restApiHttpHandler(): HttpHandler {
         return ClientFilters.AcceptGZip(GzipCompressionMode.Streaming()).then(ApacheClient(HttpClients.custom()
                 .setDefaultRequestConfig(RequestConfig.custom()
                         .setRedirectsEnabled(false)
@@ -88,8 +90,14 @@ abstract class AnomalyDetectorTest : ManagedModeTest() {
         return statusBody(response)
     }
 
+    fun restAnomalies(appConfig: AppConfig, bcRid: BlockchainRid): AnomaliesResponse {
+        val response = restApiHttpHandler().invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/anomalies/${bcRid.toHex()}"))
+        assertThat(response.status).isEqualTo(Status.OK)
+        return anomaliesBody(response)
+    }
+
     // get smart contract binary from resource
-    fun getBinaryFromArtifactResource(resourcePath: String): String {
+    private fun getBinaryFromArtifactResource(resourcePath: String): String {
         val artifactFile = javaClass.getResource(resourcePath)?.readText()
         val artifactJson = GsonBuilder().create().fromJson(artifactFile, JsonObject::class.java)
         return artifactJson.get("bytecode").asString
@@ -108,7 +116,7 @@ abstract class AnomalyDetectorTest : ManagedModeTest() {
 }
 
 // Test helper class to override api urls
-class AnomalyContainerClusterManagement(val delegate: ClusterManagement, val restApiUrls: List<String>)
+class AnomalyContainerClusterManagement(private val delegate: ClusterManagement, private val restApiUrls: List<String>)
     : ClusterManagement by delegate {
 
     override fun getBlockchainApiUrls(blockchainRid: BlockchainRid): Collection<String> {

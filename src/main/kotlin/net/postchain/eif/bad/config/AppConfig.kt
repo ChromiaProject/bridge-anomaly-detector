@@ -25,7 +25,7 @@ class AppConfig (
         val bypassBlockchainSyncCheck: Boolean = false,
 
         // Anomaly detector
-        val timeoutConfig: TimeoutConfig,
+        val anomalyConfig: AnomalyConfig,
 
         // REST
         val restApiConfig: RestApiConfig = RestApiConfig()
@@ -68,7 +68,7 @@ class AppConfig (
                     bridgeChainRefreshInterval = config.getEnvOrLongProperty("POSTCHAIN_BRIDGE_CHAIN_REFRESH_INTERVAL", "postchain.bridge_chain_refresh_interval", TimeUnit.MINUTES.toMillis(20)),
                     blockchainSyncMargin = config.getEnvOrIntProperty("ANOMALY_DETECTOR_BLOCKCHAIN_SYNC_MARGIN", "anomaly_detector.blockchain_sync_margin", 10),
                     bypassBlockchainSyncCheck = config.getEnvOrBooleanProperty("ANOMALY_DETECTOR_BYPASS_BLOCKCHAIN_SYNC_CHECK", "anomaly_detector.bypass_blockchain_sync_check", false),
-                    TimeoutConfig(config),
+                    AnomalyConfig(config),
 
                     RestApiConfig(config),
             )

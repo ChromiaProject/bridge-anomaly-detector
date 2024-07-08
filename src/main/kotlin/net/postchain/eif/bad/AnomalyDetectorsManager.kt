@@ -117,7 +117,7 @@ class AnomalyDetectorsManager(
                 val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
 
                 val anomalyDetector = AnomalyDetector(
-                        appConfig.timeoutConfig,
+                        appConfig.anomalyConfig,
                         evmConfig.logProcessorConfig,
                         web3jRequestHandler,
                         client,
