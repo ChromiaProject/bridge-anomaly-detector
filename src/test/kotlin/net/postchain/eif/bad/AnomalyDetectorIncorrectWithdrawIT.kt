@@ -47,7 +47,7 @@ import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.config.EvmConfig
 import net.postchain.eif.bad.config.LogProcessorConfig
-import net.postchain.eif.bad.config.TimeoutConfig
+import net.postchain.eif.bad.config.AnomalyConfig
 import net.postchain.eif.bad.evm.Web3jClientsManager
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
@@ -356,10 +356,11 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
                 bypassBlockchainSyncCheck = false,
 
                 // Timeouts disabled for tests to make it execute right away
-                TimeoutConfig(
+                AnomalyConfig(
                         missingHeightRetryDelay = 0,
                         pauseDelay = 0,
-                        0
+                        0,
+                        true
                 )
         )
 

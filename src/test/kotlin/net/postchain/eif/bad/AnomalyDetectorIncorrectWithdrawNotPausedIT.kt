@@ -53,7 +53,6 @@ import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
 import net.postchain.eif.getEthereumAddress
-import net.postchain.eif.transaction.TransactionSubmitter
 import net.postchain.gtv.Gtv
 import net.postchain.gtv.GtvArray
 import net.postchain.gtv.GtvEncoder
@@ -95,7 +94,6 @@ import org.web3j.tx.TransactionManager
 import org.web3j.tx.Transfer
 import org.web3j.tx.response.PollingTransactionReceiptProcessor
 import org.web3j.utils.Convert
-import org.web3j.utils.RevertReasonExtractor
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.MessageDigest
@@ -105,12 +103,12 @@ import java.util.concurrent.TimeUnit
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 @DisableIfTestFails
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class AnomalyDetectorIT : AnomalyDetectorTest() {
+class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
 
     companion object : ManagedModeBase() {
         private val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
         lateinit var ecBcRid: BlockchainRid
-        val PostchainContainer.ec get() = client(ecBcRid)
+        private val PostchainContainer.ec get() = client(ecBcRid)
 
         private const val EVM_EVENT_RECEIVER_CHAIN_NAME = "evm_event_receiver_chain"
         private const val EVM_TOKEN_BRIDGE_CHAIN_NAME = "evm_token_bridge"
@@ -127,9 +125,20 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         lateinit var eventReceiverBrid: BlockchainRid
         lateinit var tokenBridgeBrid: BlockchainRid
 
-        private val evmContainer: GethContainer
-        private val web3j: Web3j
-        private val transactionManager: TransactionManager
+        // Initialize EVM container
+        private val evmContainer: GethContainer = GethContainer(logger = Slf4jLogConsumer(evmContainerLogger.underlyingLogger, true))
+                .withNetwork(network)
+                .apply {
+                    start()
+                }
+
+        // Web3j
+        private val web3j: Web3j = Web3j.build(HttpService(evmContainer.getExternalGethUrl()))
+        private val transactionManager: TransactionManager = FastRawTransactionManager(
+                web3j,
+                Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
+                PollingTransactionReceiptProcessor(web3j, 1000, 30)
+        )
 
         // users
         // - admin
@@ -147,23 +156,6 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         private lateinit var aliceAccountId: ByteArray
 
         init {
-
-            // Initialize EVM container
-            evmContainer = GethContainer(logger = Slf4jLogConsumer(evmContainerLogger.underlyingLogger, true))
-                    .withNetwork(network)
-                    .apply {
-                        start()
-                    }
-
-            // Web3j
-
-            web3j = Web3j.build(HttpService(evmContainer.getExternalGethUrl()))
-
-            transactionManager = FastRawTransactionManager(
-                    web3j,
-                    Credentials.create("0x53914554952e5473a54b211a31303078abde83b8128995785901eed28df3f610"),
-                    PollingTransactionReceiptProcessor(web3j, 1000, 30)
-            )
 
             // Nodes
             chain0Config = this::class.java.getResource("/net/postchain/eif/bad/mainnet.xml")!!.readText()
@@ -335,6 +327,11 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
 
         logger.info { "start anomaly detector" }
 
+        // Funds for pausing
+        Transfer(web3j, transactionManager).sendFunds(
+                getEthereumAddress(node1.pubkey.data).toHex(),
+                BigDecimal.valueOf(400), Convert.Unit.ETHER).send()
+
         appConfig = AppConfig(
                 EvmClientConfig(),
 
@@ -357,7 +354,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
                         missingHeightRetryDelay = 0,
                         pauseDelay = 0,
                         0,
-                        true
+                        false, // When anomaly is found - do not pause the bridge
                 )
         )
 
@@ -387,7 +384,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
     @Order(60)
     fun `add chain to monitor`() {
 
-        logger.info { "add chain to monitor" }
+        logger.info { "add fake chain to monitor" }
 
         Awaitility.await()
                 .atMost(Duration.TEN_SECONDS)
@@ -396,8 +393,8 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
                 }
 
         node1.ec.transactionBuilder()
-                .addOperation("add_anomaly_detection", gtv(tokenBridgeBrid), gtv(networkId), gtv(bridge.contractAddress))
-                .postTransactionUntilConfirmed("chain bridge to monitor added")
+                .addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress))
+                .postTransactionUntilConfirmed("added fake chain bridge")
 
         Awaitility.await()
                 .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
@@ -407,7 +404,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
 
         val restStatus = restStatus(appConfig)
         assertThat(restStatus.size).isEqualTo(1)
-        assertThat(restStatus[0].blockchainRid).isEqualTo(tokenBridgeBrid.toHex())
+        assertThat(restStatus[0].blockchainRid).isEqualTo(ecBcRid.toHex())
     }
 
     @Test
@@ -474,7 +471,6 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         assertEquals(userBalance.value, initialMint - totalDepositedAmount)
 
         // check the asset balance on Chromia
-
         awaitQueryResult {
             val balance = node1.client(tokenBridgeBrid).getAssetBalance(aliceAccountId, assetId)
             assertThat(balance?.amount).isEqualTo(totalDepositedAmount)
@@ -506,143 +502,37 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
 
     @Test
     @Order(90)
-    fun `verify correct withdraw request`() {
+    fun `verify anomaly detected but not paused`() {
 
-        logger.info { "verify correct withdraw request" }
-        withdraw()
-
-        var anomalyDetectors = mapOf<String, AnomalyDetector>()
-
-        Awaitility.await()
-                .atMost(Duration.TEN_SECONDS)
-                .untilAsserted {
-                    anomalyDetectors = anomalyDetectorsManager.getAnomalyDetectors()
-                    assertThat(anomalyDetectors.size).isEqualTo(1)
-                }
-        val anomalyDetector = anomalyDetectors.values.first()
+        logger.info { "verify anomaly detected" }
+        withdrawRequest()
 
         Awaitility.await()
                 .atMost(Duration.ONE_MINUTE)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .untilAsserted {
 
-                    logger.info { "Waiting for anomaly detector..." }
+                    logger.info { "Waiting for anomaly detector to detect anomaly but NOT pause the bridge..." }
+
+                    val anomalyDetectors = anomalyDetectorsManager.getAnomalyDetectors()
+                    assertThat(anomalyDetectors.size).isEqualTo(1)
+                    val anomalyDetector = anomalyDetectors.values.first()
 
                     assertThat(anomalyDetector.logsProcessed).isEqualTo(1L)
-                    assertThat(anomalyDetector.logsVerified).isEqualTo(1L)
-                    assertThat(anomalyDetector.anomaliesDetected).isEqualTo(0L)
-                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.NO_ANOMALIES)
+                    assertThat(anomalyDetector.logsVerified).isEqualTo(0L)
+                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED)
                     assertThat(bridge.paused().send().value).isFalse()
+
+                    val restStatus = restStatus(appConfig)
+                    assertThat(restStatus.size).isEqualTo(1)
+                    assertThat(restStatus[0].blockchainRid).isEqualTo(ecBcRid.toHex())
+                    assertThat(restStatus[0].status).isEqualTo(AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED)
+                    val anomalies = restAnomalies(appConfig, ecBcRid)
+                    assertThat(anomalies.anomalies.size).isEqualTo(1)
                 }
     }
 
-    @Test
-    @Order(100)
-    fun `detect paused bridge`() {
-
-        logger.info { "detect paused bridge" }
-
-        // It will of course be unpaused to start with
-        assertThat(bridge.paused().send().value).isFalse()
-
-        Transfer(web3j, transactionManager).sendFunds(
-                getEthereumAddress(node1.pubkey.data).toHex(),
-                BigDecimal.valueOf(400), Convert.Unit.ETHER).send()
-
-        // Pause it
-        val nodeTransactionManager = FastRawTransactionManager(
-                web3j,
-                Credentials.create(node1.appConfig.privKey),
-                PollingTransactionReceiptProcessor(
-                        web3j,
-                        1000,
-                        30
-                )
-        )
-
-        val pauseFunctionData = TransactionSubmitter.encodeFunction("pause", listOf(), listOf())
-        val gasLimitPauseFunction = gasProvider.getGasLimit(pauseFunctionData)
-        val gasPricePauseFunction = gasProvider.getGasPrice(pauseFunctionData)
-
-        nodeTransactionManager.sendTransaction(
-                gasPricePauseFunction,
-                gasLimitPauseFunction,
-                bridge.contractAddress,
-                pauseFunctionData,
-                BigInteger.ZERO
-        )
-
-        // Verify it being paused
-        Awaitility.await().atMost(Duration.ONE_MINUTE).untilAsserted {
-            assertThat(bridge.paused().send().value).isTrue()
-        }
-
-        // Verify the anomaly detector understand it is paused
-        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors().values.first()
-        Awaitility.await()
-                .atMost(Duration.TEN_SECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.PAUSED)
-                }
-    }
-
-    @Test
-    @Order(110)
-    fun `detect unpaused bridge`() {
-
-        logger.info { "detect unpaused bridge" }
-
-        // It will of course be paused to start with
-        assertThat(bridge.paused().send().value).isTrue()
-
-        // Unpause it
-        val unpauseResponse = bridge.unpause().send()
-        assertThat(unpauseResponse.isStatusOK).isTrue()
-
-        // Verify it being unpaused
-        assertThat(bridge.paused().send().value).isFalse()
-
-        // Verify the anomaly detector understand it is unpaused
-        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors().values.first()
-        Awaitility.await()
-                .atMost(Duration.TEN_SECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .untilAsserted {
-                    assertThat(anomalyDetector.anomalyDetectorStatus).isEqualTo(AnomalyDetectorStatus.NO_ANOMALIES)
-                }
-    }
-
-    @Test
-    @Order(130)
-    fun `remove chain bridge from monitor`() {
-
-        logger.info { "remove chain from monitor" }
-
-        Awaitility.await()
-                .atMost(Duration.TEN_SECONDS)
-                .untilAsserted {
-                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(1)
-                }
-
-        node1.ec.transactionBuilder()
-                .addOperation("remove_anomaly_detection", gtv(tokenBridgeBrid))
-                .postTransactionUntilConfirmed("removed chain bridge")
-
-        Awaitility.await()
-                .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
-                .untilAsserted {
-                    assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
-                }
-
-        val restStatus = restStatus(appConfig)
-        assertThat(restStatus.size).isEqualTo(0)
-
-        // Make sure the client is shutdown
-        assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
-    }
-
-    private fun withdraw() {
+    private fun withdrawRequest() {
         // Bridge some ft token to evm
         val gtvAuthDescriptorId = node1.client(tokenBridgeBrid).query(
                 "ft4.get_account_auth_descriptors",
@@ -671,7 +561,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
                         gtv(withdrawAmount))
                 .addOperation("nop", GtvInteger(System.currentTimeMillis()))
                 .postTransactionUntilConfirmed("withdrawOnPostchain")
-        totalDepositedAmount -=  withdrawAmount
+        totalDepositedAmount -= withdrawAmount
         snapshotHeights.add(node1.client(tokenBridgeBrid).currentBlockHeight())
 
         // Check eif state for account after withdraw as well
@@ -731,15 +621,6 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
             val block = web3j.ethGetBlockByNumber(DefaultBlockParameter.valueOf(withdrawRequestReceipt.blockNumber.add(blockchainSyncMargin.toBigInteger())), false).send()
             block.block != null
         }
-
-        val withdrawReceipt = bridge.withdraw(Bytes32(eventHash), Address(aliceEvmAddressStr)).send()
-        val retrieveRevertReason = RevertReasonExtractor.extractRevertReason(withdrawReceipt, bridge.contractAddress, web3j, true, BigInteger.valueOf(1121212121212))
-
-        logger.info { "retrieveRevertReason: $retrieveRevertReason" }
-        logger.info { "revertReason: ${withdrawReceipt.revertReason}" }
-
-        userBalance = testToken.balanceOf(Address(aliceEvmAddressStr)).send()
-        assertEquals(userBalance.value, initialMint - totalDepositedAmount)
     }
 
     private fun getLastWithdrawal(beneficiary: ByteArray): Map<String, Gtv> {

@@ -22,6 +22,10 @@ fun main(args: Array<String>) {
 
     val appConfig = AppConfig.fromPropertiesFile(configFile)
 
+    if (!appConfig.anomalyConfig.pauseOnAnomaly) {
+        logger.warn { "!!! Bridge will never be paused since pauseOnAnomaly is set to false !!!" }
+    }
+
     val web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
     val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager)
     anomalyDetectorsManager.start()

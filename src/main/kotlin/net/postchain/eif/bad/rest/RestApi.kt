@@ -50,10 +50,11 @@ data class AnomalyDetectorStatusResponse(
 )
 
 data class AnomalyResponse(
+        val transactionHash: String,
         var height: Long,
         var brid: String,
-        var lastUpdatedTimestamp: Long,
-        var nextActionTimestamp: Long,
+        var lastUpdatedTimestamp: Long? = null,
+        var nextActionTimestamp: Long? = null,
 )
 
 data class AnomaliesResponse(
@@ -81,12 +82,12 @@ class RestApi(
             "/" bind static(ResourceLoader.Classpath("/restapi-root")),
 
             "/status" bind GET to ::getStatus,
-            "/anomalies/{blockchainRid}" bind GET to ::getAnomalies,
+            "/anomalies/{blockchainRid}" bind GET to ::getAnomaliesAndTasks,
 
             "/version" bind GET to ::getVersion,
     )
 
-    private fun getAnomalies(request: Request): Response {
+    private fun getAnomaliesAndTasks(request: Request): Response {
 
         val bcRid = request.path("blockchainRid")
         if (bcRid.isNullOrBlank()) {
@@ -94,14 +95,19 @@ class RestApi(
         }
 
         val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors()[bcRid]
-        if (anomalyDetector == null) {
-            return errorResponse(request, BAD_REQUEST, "No anomaly detector for blockchainRid $bcRid[0]")
-        }
+                ?: return errorResponse(request, BAD_REQUEST, "No anomaly detector for blockchainRid $bcRid[0]")
 
         return Response(OK).with(anomaliesBody of AnomaliesResponse(
-                anomalies = mapAnomalies(anomalyDetector, LogVerificationStatus.ANOMALY),
-                potentialAnomalies = mapAnomalies(anomalyDetector, LogVerificationStatus.RETRY)
+                anomalies = getAnomaliesAndTasks(anomalyDetector),
+                potentialAnomalies = mapAnomalyTasks(anomalyDetector, LogVerificationStatus.RETRY)
         ))
+    }
+
+    private fun getAnomaliesAndTasks(anomalyDetector: AnomalyDetector): List<AnomalyResponse> {
+        return mapAnomalyTasks(anomalyDetector, LogVerificationStatus.ANOMALY) +
+                anomalyDetector.anomaliesCache.getAnomalies()
+                        .map { AnomalyResponse(it.log.transactionHash, it.height, it.brid.toHex()) }
+                        .toList()
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -177,10 +183,10 @@ class RestApi(
         System.runFinalization()
     }
 
-    private fun mapAnomalies(anomalyDetector: AnomalyDetector, status: LogVerificationStatus): List<AnomalyResponse> {
+    private fun mapAnomalyTasks(anomalyDetector: AnomalyDetector, status: LogVerificationStatus): List<AnomalyResponse> {
 
-        return anomalyDetector.anomaliesCache.getAnomalies()
+        return anomalyDetector.anomaliesCache.getAnomalyTasks()
                 .filter { it.logVerification.status == status }
-                .map { AnomalyResponse(it.logVerification.height, it.logVerification.brid.toHex(), it.timestamp, it.timestamp + it.delay) }
+                .map { AnomalyResponse(it.logVerification.log.transactionHash, it.logVerification.height, it.logVerification.brid.toHex(), it.timestamp, it.timestamp + it.delay) }
     }
 }

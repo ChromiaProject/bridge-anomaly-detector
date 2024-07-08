@@ -1,7 +1,7 @@
 # Bridge anomaly detector
 
 Application to monitor bridges EVM `withdraw requests` and verify them again a postchain instance. If an anomaly is
-found it will pause the bridge contract.
+ found, it will pause the bridge contract.
 
 # Build
 

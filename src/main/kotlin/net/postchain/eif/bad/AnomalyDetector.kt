@@ -8,7 +8,7 @@ import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.toHex
 import net.postchain.eif.bad.config.LogProcessorConfig
-import net.postchain.eif.bad.config.TimeoutConfig
+import net.postchain.eif.bad.config.AnomalyConfig
 import net.postchain.eif.bad.evm.EvmLogProcessor
 import net.postchain.eif.bad.evm.Web3jClient
 import net.postchain.eif.bad.evm.Web3jRequestHandler
@@ -27,10 +27,11 @@ enum class AnomalyDetectorStatus {
     ANOMALY_FOUND,
     PAUSE_TRANSACTION_SENT,
     PAUSED,
+    ANOMALY_FOUND_NOT_PAUSED,
 }
 
 class AnomalyDetector(
-        private val timeoutConfig: TimeoutConfig,
+        private val anomalyConfig: AnomalyConfig,
         private val logProcessorConfig: LogProcessorConfig,
         private val web3jRequestHandler: Web3jRequestHandler,
         private val web3jClient: Web3jClient,
@@ -137,7 +138,7 @@ class AnomalyDetector(
         logWarn { "Bridge was UNpaused" }
 
         anomalyDetectorStatus =
-                if (anomaliesCache.getAnomalies().isEmpty())
+                if (anomaliesCache.getAnomalyTasks().isEmpty())
                     AnomalyDetectorStatus.NO_ANOMALIES
                 else
                     AnomalyDetectorStatus.ANOMALY_FOUND
@@ -152,7 +153,7 @@ class AnomalyDetector(
             logWarn { "Height ${logVerification.height} not found in node" }
 
             if (retry) {
-                val delay = timeoutConfig.missingHeightRetryDelay + getRandomDelay()
+                val delay = anomalyConfig.missingHeightRetryDelay + getRandomDelay()
                 logWarn { "Retry in ${getLogTime(delay)}" }
 
                 anomaliesCache.schedule(logVerification, LogVerificationStatus.RETRY, delay) {
@@ -161,6 +162,7 @@ class AnomalyDetector(
             } else {
 
                 pauseTokenBridge()
+                anomaliesCache.addAnomaly(logVerification)
             }
         } else {
 
@@ -178,11 +180,12 @@ class AnomalyDetector(
 
         } else {
 
-            val delay = timeoutConfig.pauseDelay + getRandomDelay()
+            val delay = anomalyConfig.pauseDelay + getRandomDelay()
             logError { "Anomaly detected - log index ${logVerification.log.logIndex} referees to block at height ${logVerification.height} with brid ${logVerification.brid.toHex()} but local brid is ${blockAtHeight.rid.toHex()} - token bridge contract will be paused in ${getLogTime(delay)}" }
 
             anomaliesCache.schedule(logVerification, LogVerificationStatus.ANOMALY, delay) {
                 pauseTokenBridge()
+                anomaliesCache.addAnomaly(logVerification)
             }
 
             anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND
@@ -197,6 +200,10 @@ class AnomalyDetector(
         if (isTokenBridgePaused()) {
 
             logInfo { "Bridge already paused" }
+        } else if (!anomalyConfig.pauseOnAnomaly) {
+
+            logWarn { "Bridge contract is NOT paused since it is disabled" }
+            anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED
 
         } else {
             web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
@@ -239,8 +246,8 @@ class AnomalyDetector(
     }
 
     private fun getRandomDelay(): Long {
-        if (timeoutConfig.maxRandomDelay > 0) {
-            return Random.nextLong(0, timeoutConfig.maxRandomDelay)
+        if (anomalyConfig.maxRandomDelay > 0) {
+            return Random.nextLong(0, anomalyConfig.maxRandomDelay)
         }
         return 0
     }
