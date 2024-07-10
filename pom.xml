@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.1.4</version>
+        <version>0.1.5</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -510,7 +510,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-quota:1.0.2@sha256:b2eb6b6ce3ad78ccd8b7b035cc7c90b40b3d48e73b911a4d15595c57d5497569</image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21-quota:1.0.3@sha256:5ede2105d309308f5c9f441700b18bb7ef46d8382e10dc0fb0738e54df67a54e</image>
                         </from>
                         <container>
                             <appRoot>/opt/chromaway/bad</appRoot>
