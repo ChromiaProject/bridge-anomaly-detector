@@ -90,7 +90,7 @@ build:
     - mvn
       $MAVEN_CLI_OPTS
       --activate-profiles ci,coverage
-      verify -DskipTests
+      verify
 
 dependency-check:
   extends: .maven-dependency-check
