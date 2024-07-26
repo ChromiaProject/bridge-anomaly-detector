@@ -107,8 +107,6 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
 
     companion object : ManagedModeBase() {
         private val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
-        lateinit var ecBcRid: BlockchainRid
-        private val PostchainContainer.ec get() = client(ecBcRid)
 
         private const val EVM_EVENT_RECEIVER_CHAIN_NAME = "evm_event_receiver_chain"
         private const val EVM_TOKEN_BRIDGE_CHAIN_NAME = "evm_token_bridge"
@@ -293,7 +291,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         logger.info { "start chains" }
 
         logger.info("Deploy EVM Event Receiver Chain")
-        val gtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/evm_event_receiver.xml")!!.readText())
+        val gtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/evm_event_receiver.xml")!!.readText())
 
         node1.c0.transactionBuilder()
                 .initEvmEventReceiverChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(gtvConfig))
@@ -312,9 +310,9 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         node1.c0.transactionBuilder()
                 .initEconomyChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(ecChainGtvConfig))
                 .postTransactionUntilConfirmed("Mocked EC initialized")
-        ecBcRid = BlockchainRid(node1.c0.getEconomyChainRid()!!)
+        ecBrid = BlockchainRid(node1.c0.getEconomyChainRid()!!)
 
-        logger.info { "Mocked EC deployed:  blockchainRid: $ecBcRid" }
+        logger.info { "Mocked EC deployed:  blockchainRid: $ecBrid" }
 
         logger.info("Deploy EVM Token Bridge dapp")
         deployDapp("evm_token_bridge", "dapp_container", assertSigners = arrayOf(node1), icmfReceiver = eventReceiverBrid.data)
@@ -350,7 +348,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
 
                 // Node and postchain
                 node1.apiPath(),
-                ecBcRid.toHex(),
+                ecBrid.toHex(),
                 BRIDGE_CHAIN_REFRESH_INTERVAL_MS,
                 blockchainSyncMargin,
                 bypassBlockchainSyncCheck = false,
@@ -399,7 +397,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
                 }
 
         node1.ec.transactionBuilder()
-                .addOperation("add_anomaly_detection", gtv(ecBcRid), gtv(networkId), gtv(bridge.contractAddress))
+                .addOperation("add_anomaly_detection", gtv(ecBrid), gtv(networkId), gtv(bridge.contractAddress))
                 .postTransactionUntilConfirmed("added fake chain bridge")
 
         Awaitility.await()
@@ -410,7 +408,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
 
         val restStatus = restStatus(appConfig)
         assertThat(restStatus.size).isEqualTo(1)
-        assertThat(restStatus[0].blockchainRid).isEqualTo(ecBcRid.toHex())
+        assertThat(restStatus[0].blockchainRid).isEqualTo(ecBrid.toHex())
     }
 
     @Test
@@ -545,7 +543,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
                 }
 
         node1.ec.transactionBuilder()
-                .addOperation("remove_anomaly_detection", gtv(ecBcRid))
+                .addOperation("remove_anomaly_detection", gtv(ecBrid))
                 .postTransactionUntilConfirmed("removed fake chain")
 
         Awaitility.await()

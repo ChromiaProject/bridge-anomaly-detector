@@ -19,8 +19,8 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.15.15</postchain.version>
-        <postchain.chromia.version>3.15.3</postchain.chromia.version>
+        <postchain.version>3.16.5</postchain.version>
+        <postchain.chromia.version>3.16.6</postchain.chromia.version>
         <postchain.client.version>3.12.4</postchain.client.version>
         <eif.version>0.4.6</eif.version>
         <directory.chain.version>1.42.0</directory.chain.version>
