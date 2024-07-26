@@ -109,8 +109,6 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
 
     companion object : ManagedModeBase() {
         private val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
-        lateinit var ecBcRid: BlockchainRid
-        val PostchainContainer.ec get() = client(ecBcRid)
 
         private const val EVM_EVENT_RECEIVER_CHAIN_NAME = "evm_event_receiver_chain"
         private const val EVM_TOKEN_BRIDGE_CHAIN_NAME = "evm_token_bridge"
@@ -295,7 +293,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         logger.info { "start chains" }
 
         logger.info("Deploy EVM Event Receiver Chain")
-        val gtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/evm_event_receiver.xml")!!.readText())
+        val gtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/directory1deployment/evm_event_receiver.xml")!!.readText())
 
         node1.c0.transactionBuilder()
                 .initEvmEventReceiverChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(gtvConfig))
@@ -314,9 +312,9 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         node1.c0.transactionBuilder()
                 .initEconomyChainOperation(node1.providerPubkey, GtvEncoder.encodeGtv(ecChainGtvConfig))
                 .postTransactionUntilConfirmed("Mocked EC initialized")
-        ecBcRid = BlockchainRid(node1.c0.getEconomyChainRid()!!)
+        ecBrid = BlockchainRid(node1.c0.getEconomyChainRid()!!)
 
-        logger.info { "Mocked EC deployed:  blockchainRid: $ecBcRid" }
+        logger.info { "Mocked EC deployed:  blockchainRid: $ecBrid" }
 
         logger.info("Deploy EVM Token Bridge dapp")
         deployDapp("evm_token_bridge", "dapp_container", assertSigners = arrayOf(node1), icmfReceiver = eventReceiverBrid.data)
@@ -347,7 +345,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
 
                 // Node and postchain
                 node1.apiPath(),
-                ecBcRid.toHex(),
+                ecBrid.toHex(),
                 BRIDGE_CHAIN_REFRESH_INTERVAL_MS,
                 blockchainSyncMargin,
                 bypassBlockchainSyncCheck = false,
