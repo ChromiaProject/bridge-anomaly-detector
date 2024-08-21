@@ -12,8 +12,8 @@
 
     <groupId>net.postchain.eif</groupId>
     <artifactId>bridge-anomaly-detector</artifactId>
-    <name>Management Console</name>
-    <description>Management Console for Chromia Network</description>
+    <name>Bridge Anomaly Detector</name>
+    <description>Bridge Anomaly Detector for Chromia Network</description>
     <url>https://docs.chromia.com</url>
     <version>${revision}</version>
 
@@ -24,9 +24,7 @@
         <postchain.client.version>3.12.4</postchain.client.version>
         <eif.version>0.4.6</eif.version>
         <directory.chain.version>1.42.0</directory.chain.version>
-        <chr.version>0.17.1</chr.version>
-        <rell.version>0.13.11</rell.version>
-        <rell.maven.plugin.version>0.11.11</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.12.1</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.11.3</web3j.version>
@@ -256,12 +254,6 @@
         <dependency>
             <groupId>net.postchain</groupId>
             <artifactId>postchain-devtools</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.postchain.rell</groupId>
-            <artifactId>rell-gtx</artifactId>
-            <version>${rell.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
