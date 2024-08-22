@@ -24,7 +24,7 @@
         <postchain.client.version>3.12.4</postchain.client.version>
         <eif.version>0.4.6</eif.version>
         <directory.chain.version>1.42.0</directory.chain.version>
-        <rell.maven.plugin.version>0.12.1</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.12.2</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.11.3</web3j.version>
