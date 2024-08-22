@@ -180,7 +180,6 @@ class RestApi(
     override fun close() {
         server.close()
         System.gc()
-        System.runFinalization()
     }
 
     private fun mapAnomalyTasks(anomalyDetector: AnomalyDetector, status: LogVerificationStatus): List<AnomalyResponse> {
