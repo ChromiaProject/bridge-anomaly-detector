@@ -2,7 +2,7 @@ image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java
 
 include:
   - project: "chromaway/core-infra/gitlab-automation"
-    ref: 1.1.18
+    ref: 1.2.0
     file:
       - templates/release.yml
       - templates/maven-dependency-scanning.yml
