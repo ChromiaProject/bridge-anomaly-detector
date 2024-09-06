@@ -114,7 +114,7 @@ container-scanning:
 
 prepare_release:
   stage: prepare_release
-  image: alpine:latest
+  image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker:1.1.3
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
   script:
@@ -127,7 +127,7 @@ prepare_release:
 
 gitlab-release:
   stage: release
-#  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
     - job: prepare_release
       artifacts: true
