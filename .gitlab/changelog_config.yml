@@ -2,9 +2,9 @@
 template: |
   {% if categories %}
   {% each categories %}
-  - {{ title }} ({% each entries %}{% if merge_request %}[MR]({{ merge_request.web_url }}){% else %}[commit]({{ commit.web_url }}){% end %} {% end %})
+  - {{ title }} {% each entries %}{{ commit.web_url }} {% end %}
+
   {% end %}
   {% else %}
   No changes.
   {% end %}
-
