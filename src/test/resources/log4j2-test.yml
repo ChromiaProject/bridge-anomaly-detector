@@ -40,7 +40,6 @@ Configuration:
           pattern: "%msg%n"
 
   Loggers:
-
     Root:
       level: info
       additivity: false
