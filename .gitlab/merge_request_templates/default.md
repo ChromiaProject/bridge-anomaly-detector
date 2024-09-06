@@ -3,4 +3,4 @@
 Description...
 
 # Release notes
-Changelog: remove to not include in release notes
+Changelog: Release note

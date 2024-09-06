@@ -1,4 +1,4 @@
-image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java21:1.0.1
+image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker-java21:1.0.3
 
 include:
   - project: "chromaway/core-infra/gitlab-automation"
@@ -114,12 +114,9 @@ container-scanning:
 
 prepare_release:
   stage: prepare_release
-  image: registry.gitlab.com/chromaway/core-tools/chromia-images/maven-docker:1.1.3
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v?\d+\.\d+\.\d+$/'
   script:
-    - apk add curl jq
-    - env
     - 'curl -H "PRIVATE-TOKEN: $TMP_CI_API_TOKEN" "$CI_API_V4_URL/projects/$CI_PROJECT_ID/repository/changelog?version=$CI_COMMIT_TAG" | jq -r .notes > release_notes.md'
   artifacts:
     paths:
