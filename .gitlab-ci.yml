@@ -133,7 +133,7 @@ gitlab-release:
   script:
     - echo "Release $CI_COMMIT_TAG"
   release:
-    name: 'Release $CI_COMMIT_TAG'
+    name: 'Bridge anomaly detector v$CI_COMMIT_TAG'
     description: release_notes.md
     tag_name: '$CI_COMMIT_TAG'
 
