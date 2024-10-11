@@ -33,6 +33,7 @@ import net.postchain.chain0.model.ProviderInfo
 import net.postchain.chain0.model.ProviderTier
 import net.postchain.chain0.proposal_provider.proposeProvidersOperation
 import net.postchain.cm.cm_api.ClusterManagementImpl
+import net.postchain.d1.cluster.ClusterManagement
 import net.postchain.common.BlockchainRid
 import net.postchain.common.data.KECCAK256
 import net.postchain.common.hexStringToByteArray
@@ -242,7 +243,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
     @Order(20)
     fun `Setup the network`() {
         logger.info("Setup the network")
-        node1Db.awaitBlockHeight(0)
+        getDb(node1).awaitBlockHeight(0)
         with(node1.c0) {
             val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/cluster_anchoring.xml")!!.readText())
             val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/system_anchoring.xml")!!.readText())

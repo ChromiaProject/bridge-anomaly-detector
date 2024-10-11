@@ -19,9 +19,9 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.16.5</postchain.version>
-        <postchain.chromia.version>3.16.6</postchain.chromia.version>
-        <postchain.client.version>3.12.4</postchain.client.version>
+        <postchain.version>3.20.3</postchain.version>
+        <postchain.chromia.version>3.20.2</postchain.chromia.version>
+        <postchain.client.version>3.18.2</postchain.client.version>
         <eif.version>0.4.6</eif.version>
         <directory.chain.version>1.42.0</directory.chain.version>
         <rell.maven.plugin.version>0.12.2</rell.maven.plugin.version>

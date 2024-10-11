@@ -32,7 +32,6 @@ import net.postchain.chain0.lib.ft4.auth.external.ftAuthOperation
 import net.postchain.chain0.model.ProviderInfo
 import net.postchain.chain0.model.ProviderTier
 import net.postchain.chain0.proposal_provider.proposeProvidersOperation
-import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
 import net.postchain.common.data.KECCAK256
 import net.postchain.common.hexStringToByteArray
@@ -100,6 +99,8 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import net.postchain.cm.cm_api.ClusterManagementImpl
+import net.postchain.d1.cluster.ClusterManagement
 
 @Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
@@ -250,7 +251,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
     @Order(20)
     fun `Setup the network`() {
         logger.info("Setup the network")
-        node1Db.awaitBlockHeight(0)
+        getDb(node1).awaitBlockHeight(0)
         with(node1.c0) {
             val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/cluster_anchoring.xml")!!.readText())
             val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/system_anchoring.xml")!!.readText())

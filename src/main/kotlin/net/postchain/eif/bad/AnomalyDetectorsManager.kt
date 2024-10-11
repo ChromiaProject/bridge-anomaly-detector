@@ -14,11 +14,9 @@ import net.postchain.client.core.PostchainQuery
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.impl.PostchainClientProviderImpl
 import net.postchain.client.request.EndpointPool
-import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
 import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
-import net.postchain.d1.cluster.ClusterManagement
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.evm.Web3jClientsManager
@@ -26,6 +24,8 @@ import net.postchain.eif.bad.evm.Web3jRequestHandler
 import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
 import kotlin.coroutines.cancellation.CancellationException
+import net.postchain.cm.cm_api.ClusterManagementImpl
+import net.postchain.d1.cluster.ClusterManagement
 
 class AnomalyDetectorsManager(
         private val appConfig: AppConfig,

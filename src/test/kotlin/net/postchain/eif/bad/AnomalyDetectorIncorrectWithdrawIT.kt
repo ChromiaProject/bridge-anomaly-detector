@@ -248,7 +248,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
     @Order(20)
     fun `Setup the network`() {
         logger.info("Setup the network")
-        node1Db.awaitBlockHeight(0)
+        getDb(node1).awaitBlockHeight(0)
         with(node1.c0) {
             val clusterAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/cluster_anchoring.xml")!!.readText())
             val systemAnchoringGtvConfig = GtvMLParser.parseGtvML(this::class.java.getResource("/net/postchain/eif/bad/system_anchoring.xml")!!.readText())
