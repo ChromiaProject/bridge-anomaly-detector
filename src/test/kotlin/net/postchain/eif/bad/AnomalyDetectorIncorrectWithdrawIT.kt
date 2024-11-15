@@ -115,7 +115,6 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         private val node1Logger = KotlinLogging.logger("EvmEventReceiver_Node1Logger")
         private val node2Logger = KotlinLogging.logger("EvmEventReceiver_Node2Logger")
         private val node3Logger = KotlinLogging.logger("EvmEventReceiver_Node3Logger")
-        override val logsSubdir = "evm_event_receiver"
         private val provider1KeyPair = KeyPair.of(
                 "03ECD350EEBC617CBBFBEF0A1B7AE553A748021FD65C7C50C5ABB4CA16D4EA5B05",
                 "BBBDFE956021912512E14BB081B27A35A0EABC4098CB687E973C434006BCE114")
