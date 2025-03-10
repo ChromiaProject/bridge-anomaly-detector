@@ -12,7 +12,6 @@ import org.http4k.core.Method.GET
 import org.http4k.core.Method.OPTIONS
 import org.http4k.core.Method.POST
 import org.http4k.core.Request
-import org.http4k.core.RequestContexts
 import org.http4k.core.Response
 import org.http4k.core.Status
 import org.http4k.core.Status.Companion.BAD_REQUEST
@@ -141,11 +140,7 @@ class RestApi(
             basePath bind app
     )
 
-    private val contexts = RequestContexts()
-
-    private val server = ServerFilters.InitialiseRequestContext(contexts)
-            .then(ServerFilters.Cors(
-                    CorsPolicy(OriginPolicy.AllowAll(), listOf("Content-Type", "Accept"), listOf(GET, POST, OPTIONS), credentials = false)))
+    private val server = ServerFilters.Cors(CorsPolicy(OriginPolicy.AllowAll(), listOf("Content-Type", "Accept"), listOf(GET, POST, OPTIONS), credentials = false))
             .then(Filter { next ->
                 { request ->
                     try {
