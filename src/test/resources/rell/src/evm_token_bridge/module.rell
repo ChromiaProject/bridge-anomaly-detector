@@ -1,0 +1,33 @@
+module;
+
+namespace ft4 {
+    import lib.ft4.admin;
+    import lib.ft4.assets;
+}
+
+namespace eif {
+    import messaging: lib.eif.messaging;
+    import lib.hbridge;
+    import lib.eif_event_connector;
+}
+
+operation init(token_address: byte_array, bridge_address: byte_array) {
+    // register FT4 asset
+    val asset = ft4.assets.Unsafe.register_asset(
+        "tCHR",
+        "tCHR",
+        6,
+        chain_context.blockchain_rid,
+        "https://s3.eu-central-1.amazonaws.com/www.chromiadev.net/assets/tCHR.png",
+    );
+
+    // register bridge and ERC-20 asset contract on HBridge
+    eif.hbridge.register_bridge_and_erc20_asset(
+        1337,
+        token_address,
+        asset,
+        eif.hbridge.bridge_mode.foreign,
+        false,
+        bridge_address
+    );
+}
