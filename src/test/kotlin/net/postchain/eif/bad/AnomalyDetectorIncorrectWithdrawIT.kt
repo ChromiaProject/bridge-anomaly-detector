@@ -114,7 +114,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         // Nodes
         chain0Config = this::class.java.getResource("/directory1deployment/mainnet.xml")!!.readText()
         node1 = postchainServer("node1", Slf4jLogConsumer(node1Logger.underlyingLogger, true),
-                node1KeyPair,
+                provider1KeyPair,
                 "/net/postchain/images/directory1/config-no-subnodes")
                 .withEifEnv()
         node2 = postchainServer("node2", Slf4jLogConsumer(node2Logger.underlyingLogger, true),
@@ -232,7 +232,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         testLogger.info { "$EC_CHAIN_NAME initialized" }
 
         aliceECAuthDescriptor = registerAccount(node1, ecAdminKeyPair, ecBrid, aliceKeyPair, "Alice")
-        linkAccount(aliceECAuthDescriptor, aliceEvmAddress, ecBrid)
+        linkAccount(aliceECAuthDescriptor, aliceEvmCredentials, ecBrid)
 
         // Claim initial supply
         aliceECAuthDescriptor.verifyOperationAuthFlags("faucet")
@@ -445,7 +445,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
 
         aliceBridgeAuthDescriptor = FTAuthenticator(aliceKeyPair, node1.client(tokenBridgeBrid, listOf(aliceKeyPair)))
 
-        linkAccount(aliceBridgeAuthDescriptor, aliceEvmAddress, tokenBridgeBrid)
+        linkAccount(aliceBridgeAuthDescriptor, aliceEvmCredentials, tokenBridgeBrid)
 
         assetId = node1.client(tokenBridgeBrid).getAssetsByName("tCHR", null, null)
                 .data[0]["id"]?.asByteArray()!!
