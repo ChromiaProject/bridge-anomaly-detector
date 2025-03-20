@@ -20,11 +20,11 @@
     <properties>
         <revision>dev</revision>
         <postchain.version>3.28.4</postchain.version>
-        <postchain.chromia.version>3.26.1</postchain.chromia.version>
+        <postchain.chromia.version>3.27.3</postchain.chromia.version>
         <postchain.client.version>3.25.0</postchain.client.version>
-        <eif.version>0.11.1</eif.version>
-        <directory.chain.version>1.82.0</directory.chain.version>
-        <rell.maven.plugin.version>0.13.0</rell.maven.plugin.version>
+        <eif.version>0.13.1</eif.version>
+        <directory.chain.version>1.82.6</directory.chain.version>
+        <rell.maven.plugin.version>0.14.1</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.12.0</web3j.version>
@@ -468,7 +468,7 @@
                             ${project.build.directory}/${project.artifactId}-${project.version}-dist/management-console/bin/bad
                         </DIST_EXECUTABLE>
                         <PROJECT_VERSION>${project.version}</PROJECT_VERSION>
-                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:${postchain.chromia.version}</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
+                        <POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>registry.gitlab.com/chromaway/postchain-chromia/chromaway/chromia-server:latest-snapshot</POSTCHAIN_TEST_DOCKER_IMAGE_POSTCHAIN_SERVER>
                     </environmentVariables>
                 </configuration>
                 <executions>
