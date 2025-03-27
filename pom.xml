@@ -407,6 +407,7 @@
                             <packageName>net.postchain.chain0</packageName>
                             <mainModules>
                                 <mainModule>economy_chain_test</mainModule>
+                                <mainModule>management_chain_mainnet</mainModule>
                             </mainModules>
                         </configuration>
                     </execution>

@@ -1,5 +1,5 @@
-blockchains:
-  evm_token_bridge:
+definitions:
+  token_bridge_config: &common_config
     module: evm_token_bridge
     moduleArgs:
       lib.ft4.core.admin:
@@ -23,6 +23,10 @@ blockchains:
           local:
             - topic: L_evm_block_events
               bc-rid: ICMF_SENDER_BRID
+
+blockchains:
+  evm_token_bridge: *common_config
+  fake_evm_token_bridge: *common_config
 
 libs:
   ft4:

@@ -8,15 +8,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.slf4j.MDCContext
+import net.postchain.chain0.common.queries.getClusterBlockchains
+import net.postchain.chain0.common.queries.listClustersOfNode
 import net.postchain.chain0.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
+import net.postchain.chain0.economy_chain_in_directory_chain.getEconomyChainRid
+import net.postchain.chain0.lib.hbridge.getBridgeContracts
+import net.postchain.chain0.token_chain_in_directory_chain.getTokenChainRid
 import net.postchain.client.config.PostchainClientConfig
 import net.postchain.client.core.PostchainQuery
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.impl.PostchainClientProviderImpl
 import net.postchain.client.request.EndpointPool
 import net.postchain.common.BlockchainRid
-import net.postchain.common.hexStringToByteArray
-import net.postchain.common.toHex
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.evm.Web3jClientsManager
@@ -25,6 +28,9 @@ import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
 import kotlin.coroutines.cancellation.CancellationException
 import net.postchain.cm.cm_api.ClusterManagementImpl
+import net.postchain.common.exception.UserMistake
+import net.postchain.common.toHex
+import net.postchain.d1.client.ChromiaClientProvider
 import net.postchain.d1.cluster.ClusterManagement
 
 class AnomalyDetectorsManager(
@@ -38,10 +44,18 @@ class AnomalyDetectorsManager(
             web3jClientsManager: Web3jClientsManager,
     ) : this(appConfig, web3jClientsManager, ::ClusterManagementImpl)
 
+    companion object {
+        const val SYSTEM_CLUSTER = "system"
+    }
+
     private val anomalyDetectors = mutableMapOf<String, AnomalyDetector>()
     private lateinit var bridgeMonitorJob: Job
+    private lateinit var directoryChainBrid: BlockchainRid
+    private lateinit var economyChainBrid: BlockchainRid
+    private var tokenChainBrid: BlockchainRid? = null
 
     fun start() {
+        initializeBrids()
 
         bridgeMonitorJob =
                 CoroutineScope(Dispatchers.IO).launch(CoroutineName("anomaly-detectors-manager") + MDCContext()) {
@@ -62,6 +76,15 @@ class AnomalyDetectorsManager(
                 }
     }
 
+    private fun initializeBrids() {
+        val client = createPostchainClient(appConfig.nodeUrl, BlockchainRid.ZERO_RID)
+        directoryChainBrid = client.getBlockchainRID(0)
+        val directoryChainClient = createPostchainClient(appConfig.nodeUrl, directoryChainBrid)
+        economyChainBrid = directoryChainClient.getEconomyChainRid()?.let { BlockchainRid(it) }
+                ?: throw UserMistake("Network does not have any economy chain running")
+        tokenChainBrid = directoryChainClient.getTokenChainRid().let { if (it.size == 32) BlockchainRid(it) else null }
+    }
+
     fun getAnomalyDetectors(): Map<String, AnomalyDetector> = anomalyDetectors.toImmutableMap()
 
     private fun setupAndStopDetectors() {
@@ -80,10 +103,9 @@ class AnomalyDetectorsManager(
         try {
             val blockchainPostchainClient = createPostchainClient(appConfig.nodeUrl, blockchain.blockchainRid)
             val currentBlockHeight = blockchainPostchainClient.currentBlockHeight()
-            val directoryChainRID = blockchainPostchainClient.getBlockchainRID(0)
-            val directoryChainPostchainClient = createPostchainClient(appConfig.nodeUrl, directoryChainRID.data)
+            val directoryChainPostchainClient = createPostchainClient(appConfig.nodeUrl, directoryChainBrid)
             val clusterManagement = clusterManagementProvider(directoryChainPostchainClient)
-            val blockchainApiUrls = clusterManagement.getBlockchainApiUrls(BlockchainRid(blockchain.blockchainRid))
+            val blockchainApiUrls = clusterManagement.getBlockchainApiUrls(blockchain.blockchainRid)
             val highestBlockheightOverNodes = blockchainApiUrls
                     .map { createPostchainClient(it, blockchain.blockchainRid) }
                     .map { it.currentBlockHeight() }
@@ -151,7 +173,7 @@ class AnomalyDetectorsManager(
             anomalyDetectors.filter { (key, _) -> blockchainsToMonitor.none { it.blockchainRid.toHex() == key } }
 
     private fun getBlockchainsToStart(blockchainsToMonitor: List<Blockchain>) =
-        blockchainsToMonitor.filter { !anomalyDetectors.containsKey(it.blockchainRid.toHex()) }
+            blockchainsToMonitor.filter { !anomalyDetectors.containsKey(it.blockchainRid.toHex()) }
 
     fun stop() {
 
@@ -160,15 +182,44 @@ class AnomalyDetectorsManager(
     }
 
     private fun getBlockchainsToMonitor(appConfig: AppConfig): List<Blockchain> {
-        val postchainClient = createPostchainClient(appConfig.nodeUrl, appConfig.blockchainRid.hexStringToByteArray())
-        return postchainClient.getBlockchainsWithBridgeAndAnomalyDetection()
-                .map { Blockchain(it.blockchainRid.data, it.evmNetworkId, it.bridgeContract) }
+        val directoryChainClient = createPostchainClient(appConfig.nodeUrl, directoryChainBrid)
+        val nodeClusters = directoryChainClient.listClustersOfNode(appConfig.nodePubKey)
+
+        val chainsToMonitor = mutableListOf<Blockchain>()
+        if (nodeClusters.contains(SYSTEM_CLUSTER)) {
+            val ecClient = createPostchainClient(appConfig.nodeUrl, economyChainBrid)
+            val supportedNetworks = appConfig.evmConfig.keys.toList()
+            chainsToMonitor += supportedNetworks.flatMap { networkId ->
+                ecClient.getBridgeContracts(networkId)
+                        .map { Blockchain(economyChainBrid, networkId, it.contractAddress.data.toHex().prefixedHex()) }
+            }
+            if (tokenChainBrid != null) {
+                val tokenChainClient = createPostchainClient(appConfig.nodeUrl, economyChainBrid)
+                chainsToMonitor += supportedNetworks.flatMap { networkId ->
+                    tokenChainClient.getBridgeContracts(networkId)
+                            .map { Blockchain(tokenChainBrid!!, networkId, it.contractAddress.data.toHex().prefixedHex()) }
+                }
+            }
+        }
+
+        val runningDappChains = nodeClusters.filter { it != SYSTEM_CLUSTER }
+                .flatMap { directoryChainClient.getClusterBlockchains(it) }
+                .map { BlockchainRid(it) }
+
+        if (runningDappChains.isNotEmpty()) {
+            val ecClient = ChromiaClientProvider(clusterManagementProvider(directoryChainClient)).blockchain(economyChainBrid)
+            chainsToMonitor += ecClient.getBlockchainsWithBridgeAndAnomalyDetection()
+                    .map { Blockchain(BlockchainRid(it.blockchainRid), it.evmNetworkId, it.bridgeContract.prefixedHex()) }
+                    .filter { runningDappChains.contains(it.blockchainRid) }
+        }
+
+        return chainsToMonitor
     }
 
-    private fun createPostchainClient(nodeUrl: String, bcRid: ByteArray) =
+    private fun createPostchainClient(nodeUrl: String, bcRid: BlockchainRid) =
             PostchainClientProviderImpl().createClient(
                     PostchainClientConfig(
-                            BlockchainRid(bcRid),
+                            bcRid,
                             EndpointPool.singleUrl(nodeUrl),
                             listOf()
                     ))
@@ -179,5 +230,12 @@ class AnomalyDetectorsManager(
         val web3jRequestHandler = Web3jRequestHandler(web3jServices)
 
         return web3jRequestHandler
+    }
+
+    private fun String.prefixedHex(): String {
+        if (!this.startsWith("0x")) {
+            return "0x$this"
+        }
+        return this
     }
 }

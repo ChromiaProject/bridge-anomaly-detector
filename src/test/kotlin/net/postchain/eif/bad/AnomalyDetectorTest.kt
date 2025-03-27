@@ -44,10 +44,11 @@ abstract class AnomalyDetectorTest : EvmTestBase("EvmEventReceiver_EvmContainerL
         const val EIF_EVENT_RECEIVER_CHAIN_NAME = "eif_event_receiver"
 
         const val EVM_TOKEN_BRIDGE_CHAIN_NAME = "evm_token_bridge"
+        const val FAKE_EVM_TOKEN_BRIDGE_CHAIN_NAME = "fake_evm_token_bridge"
 
         const val APP_CLUSTER = "app_cluster"
         const val APP_CLUSTER_TAG = "app_cluster_tag"
-        const val PROVIDER1_VS = "provider1_vs"
+        const val PROVIDER_1_AND_3_VS = "provider_1_and_3_vs"
 
         // Could be nice to expose in a clean way from postchain-chromia
         const val EIF_EC_EVENT_RECEIVER_BRID_PLACEHOLDER = "EIF_EC_EVENT_RECEIVER_BRID_PLACEHOLDER"
@@ -77,6 +78,7 @@ abstract class AnomalyDetectorTest : EvmTestBase("EvmEventReceiver_EvmContainerL
 
     lateinit var eventReceiverBrid: BlockchainRid
     lateinit var tokenBridgeBrid: BlockchainRid
+    lateinit var fakeTokenBridgeBrid: BlockchainRid
 
     lateinit var aliceContainerName: String
     lateinit var aliceECAuthDescriptor: FTAuthenticator
