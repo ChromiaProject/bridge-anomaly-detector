@@ -4,6 +4,9 @@ import net.postchain.common.config.getEnvOrBooleanProperty
 import net.postchain.common.config.getEnvOrIntProperty
 import net.postchain.common.config.getEnvOrLongProperty
 import net.postchain.common.config.getEnvOrStringProperty
+import net.postchain.common.exception.UserMistake
+import net.postchain.common.hexStringToByteArray
+import net.postchain.crypto.PubKey
 import org.apache.commons.configuration2.PropertiesConfiguration
 import org.apache.commons.configuration2.builder.FileBasedConfigurationBuilder
 import org.apache.commons.configuration2.builder.fluent.Parameters
@@ -19,7 +22,7 @@ class AppConfig (
 
         // Postchain
         val nodeUrl: String,
-        val blockchainRid: String,
+        val nodePubKey: PubKey,
         val bridgeChainRefreshInterval: Long = TimeUnit.MINUTES.toMillis(20),
         val blockchainSyncMargin: Int = 10,
         val bypassBlockchainSyncCheck: Boolean = false,
@@ -64,7 +67,10 @@ class AppConfig (
                     evmConfig = evmConfigs,
 
                     nodeUrl = config.getEnvOrStringProperty("POSTCHAIN_URL", "postchain.url", "http://localhost:7740"),
-                    blockchainRid = config.getEnvOrStringProperty("POSTCHAIN_BLOCKCHAIN_RID", "postchain.blockchain_rid", ""),
+                    nodePubKey = config.getEnvOrStringProperty("POSTCHAIN_NODE_PUBKEY", "postchain.node_pubkey")
+                            ?.hexStringToByteArray()
+                            ?.let { PubKey(it) }
+                            ?: throw UserMistake("Node public key must be specified"),
                     bridgeChainRefreshInterval = config.getEnvOrLongProperty("POSTCHAIN_BRIDGE_CHAIN_REFRESH_INTERVAL", "postchain.bridge_chain_refresh_interval", TimeUnit.MINUTES.toMillis(20)),
                     blockchainSyncMargin = config.getEnvOrIntProperty("ANOMALY_DETECTOR_BLOCKCHAIN_SYNC_MARGIN", "anomaly_detector.blockchain_sync_margin", 10),
                     bypassBlockchainSyncCheck = config.getEnvOrBooleanProperty("ANOMALY_DETECTOR_BYPASS_BLOCKCHAIN_SYNC_CHECK", "anomaly_detector.bypass_blockchain_sync_check", false),
@@ -80,8 +86,6 @@ class AppConfig (
     init {
         require(evmConfig.isNotEmpty()) { "At least one evm network is required" }
         require(nodeUrl.isNotBlank()) { "Postchain node url is required" }
-        require(blockchainRid.isNotBlank()) { "Postchain blockchain RID is required" }
-        require(blockchainRid.length == 64) { "Postchain blockchain RID is invalid (expected length 64)" }
         require(bridgeChainRefreshInterval > 0) { "bridgeChainRefreshInterval must be positive" }
     }
 }

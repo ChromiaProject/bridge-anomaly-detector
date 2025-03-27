@@ -1,6 +1,7 @@
 package net.postchain.eif.bad
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
+import net.postchain.common.BlockchainRid
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.RestApiConfig
 import net.postchain.eif.bad.evm.Web3jClientsManager
@@ -8,7 +9,7 @@ import net.postchain.eif.bad.rest.RestApi
 import java.io.File
 
 data class Blockchain(
-        val blockchainRid: ByteArray,
+        val blockchainRid: BlockchainRid,
         val evmNetworkId: Long,
         val bridgeContract: String
 )

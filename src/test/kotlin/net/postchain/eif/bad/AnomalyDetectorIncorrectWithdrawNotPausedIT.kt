@@ -38,6 +38,7 @@ import net.postchain.chain0.model.ProviderInfo
 import net.postchain.chain0.model.ProviderTier
 import net.postchain.chain0.proposal.voting.createVoterSetOperation
 import net.postchain.chain0.proposal_blockchain.proposeBlockchainOperation
+import net.postchain.chain0.proposal_provider.proposeProviderIsSystemOperation
 import net.postchain.chain0.proposal_provider.proposeProvidersOperation
 import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
@@ -94,7 +95,7 @@ import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 
 /**
- * The way we fake anomalies in this test is by registering the economy chain blockchain RID as the bridge chain
+ * The way we fake anomalies in this test is by registering an incorrect blockchain RID as the bridge chain
  * instead of the actual bridge chain.
  */
 @Testcontainers(disabledWithoutDocker = true)
@@ -148,7 +149,10 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
         logger.info { "deploy contracts" }
 
         // Deploy validator contract
-        val encodedConstructor = FunctionEncoder.encodeConstructor(listOf(DynamicArray(Address::class.java, Address(getEthereumAddress(node1.pubkey.data).toHex()))))
+        val encodedConstructor = FunctionEncoder.encodeConstructor(listOf(DynamicArray(Address::class.java,
+                Address(getEthereumAddress(node1.pubkey.data).toHex()),
+                Address(getEthereumAddress(node3.pubkey.data).toHex())
+        )))
         validator = Contract.deployRemoteCall(Validator::class.java, web3j, transactionManager, gasProvider, validatorBinary, encodedConstructor).send()
 
         // Deploy token bridge contract
@@ -183,19 +187,18 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
         }
         assertAnchoringChainProperties()
 
-        // Adding provider 2 & 3 as system
-        logger.info("Add system provider provider 2 & 3 and their nodes")
+        // Adding provider 2 & 3
+        logger.info("Add provider 2 & 3. Promote 2 to system provider")
         val newProviders = listOf(
                 ProviderInfo(node2.provider.pubKey.wData, "provider2", "http://provider2.com"),
                 ProviderInfo(node3.provider.pubKey.wData, "provider3", "http://provider3.com")
         )
         node1.client(chain0Brid, listOf(node1.provider, node2.provider, node3.provider)).transactionBuilder().addNop()
-                .proposeProvidersOperation(node1.providerPubkey, newProviders, ProviderTier.NODE_PROVIDER, system = true, active = true, description = "")
+                .proposeProvidersOperation(node1.providerPubkey, newProviders, ProviderTier.NODE_PROVIDER, system = false, active = true, description = "")
+                .proposeProviderIsSystemOperation(node1.providerPubkey, node2.providerPubkey, true, "")
                 .registerNodeWithUnitsOperation(node2.providerPubkey, node2.pubkey.data, node2.nodeHost, node2.nodePort.toLong(), node2.nodeApiPath(), listOf(systemCluster), 2)
-                .registerNodeWithUnitsOperation(node3.providerPubkey, node3.pubkey.data, node3.nodeHost, node3.nodePort.toLong(), node3.nodeApiPath(), listOf(systemCluster), 2)
-                .createVoterSetOperation(node1.providerPubkey, PROVIDER1_VS, 0, listOf(node1.providerPubkey), null)
+                .createVoterSetOperation(node3.providerPubkey, PROVIDER_1_AND_3_VS, 0, listOf(node1.providerPubkey, node3.providerPubkey), null)
                 .postTransactionUntilConfirmed("System provider 2 & 3 registered and node added")
-
         val providers = node1.c0.query("get_all_providers", gtv(mapOf()))
         assertThat(providers.asArray().size).isEqualTo(3)
     }
@@ -248,7 +251,6 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
                     .postTransactionUntilConfirmed("$APP_CLUSTER_TAG tag created")
 
             makeVoteOnLatestProposal(node2)
-            makeVoteOnLatestProposal(node3)
 
             assertThat(getTagByName(APP_CLUSTER_TAG))
                     .isEqualTo(TagData(APP_CLUSTER_TAG, 1, 1))
@@ -258,12 +260,11 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
 
         with(node1.ec) {
             transactionBuilder()
-                    .createClusterOperation(APP_CLUSTER, "SYSTEM_P", PROVIDER1_VS, 1, 0, APP_CLUSTER_TAG)
+                    .createClusterOperation(APP_CLUSTER, "SYSTEM_P", PROVIDER_1_AND_3_VS, 1, 0, APP_CLUSTER_TAG)
                     .postTransactionUntilConfirmed("$APP_CLUSTER created")
 
             // Approve APP_CLUSTER
             makeVoteOnLatestProposal(node2)
-            makeVoteOnLatestProposal(node3)
 
             awaitQueryResult {
                 assertThat(getClusterCreationStatus(APP_CLUSTER))
@@ -271,10 +272,11 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
             }
         }
 
-        node1.client(chain0Brid, listOf(node1.provider, node2.provider)).transactionBuilder().addNop()
+        node1.client(chain0Brid, listOf(node1.provider, node3.provider)).transactionBuilder().addNop()
                 .updateNodeWithUnitsOperation(node1.providerPubkey, node1.pubkey.data, null, null, null, 3)
                 .addNodeToClusterOperation(node1.providerPubkey, node1.pubkey.data, APP_CLUSTER)
-                .postTransactionUntilConfirmed("Add node to cluster")
+                .registerNodeWithUnitsOperation(node3.providerPubkey, node3.pubkey.data, node3.nodeHost, node3.nodePort.toLong(), node3.nodeApiPath(), listOf(APP_CLUSTER), 1)
+                .postTransactionUntilConfirmed("Add node 1 and 3 to dapp cluster")
 
         testLogger.info("Create container")
         aliceECAuthDescriptor.verifyOperationAuthFlags("create_container")
@@ -322,14 +324,20 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
         testLogger.info { "$EIF_EVENT_RECEIVER_CHAIN_NAME deployed: $eventReceiverBrid" }
 
         logger.info("Deploy EVM Token Bridge dapp")
-        deployDapp(EVM_TOKEN_BRIDGE_CHAIN_NAME, aliceContainerName, assertSigners = arrayOf(node1), icmfReceiver = eventReceiverBrid.data)
+        deployDapp(EVM_TOKEN_BRIDGE_CHAIN_NAME, aliceContainerName, assertSigners = arrayOf(node1, node3), icmfReceiver = eventReceiverBrid.data)
+        deployDapp(FAKE_EVM_TOKEN_BRIDGE_CHAIN_NAME, aliceContainerName, assertSigners = arrayOf(node1, node3), icmfReceiver = BlockchainRid.ZERO_RID.data)
 
-        val brid = node1.c0.getBlockchains(true).firstOrNull { it.name == EVM_TOKEN_BRIDGE_CHAIN_NAME }?.rid
         awaitUntilAsserted {
+            val brid = node1.c0.getBlockchains(true).firstOrNull { it.name == EVM_TOKEN_BRIDGE_CHAIN_NAME }?.rid
             assertThat(brid).isNotNull()
             tokenBridgeBrid = BlockchainRid(brid!!)
         }
         bridge.setBlockchainRid(Bytes32(tokenBridgeBrid.data)).send()
+        awaitUntilAsserted {
+            val brid = node1.c0.getBlockchains(true).firstOrNull { it.name == FAKE_EVM_TOKEN_BRIDGE_CHAIN_NAME }?.rid
+            assertThat(brid).isNotNull()
+            fakeTokenBridgeBrid = BlockchainRid(brid!!)
+        }
 
         node1.client(tokenBridgeBrid).transactionBuilder()
                 .addOperation("init", gtv(testTokenAddress), gtv(bridgeAddress))
@@ -360,8 +368,8 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
                 )),
 
                 // Node and postchain
-                node1.apiPath(),
-                ecBrid.toHex(),
+                node3.apiPath(),
+                node3.pubkey,
                 BRIDGE_CHAIN_REFRESH_INTERVAL_MS,
                 blockchainSyncMargin,
                 bypassBlockchainSyncCheck = false,
@@ -410,7 +418,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
                 }
 
         aliceECAuthDescriptor.transactionBuilder()
-                .addBridgeLeaseOperation(aliceContainerName, ecBrid, networkId, validator.contractAddress, bridge.contractAddress, true)
+                .addBridgeLeaseOperation(aliceContainerName, fakeTokenBridgeBrid, networkId, validator.contractAddress, bridge.contractAddress, true)
                 .postTransactionUntilConfirmed("added bridge lease")
 
         Awaitility.await()
@@ -421,7 +429,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
 
         val restStatus = restStatus(appConfig)
         assertThat(restStatus.size).isEqualTo(1)
-        assertThat(restStatus[0].blockchainRid).isEqualTo(ecBrid.toHex())
+        assertThat(restStatus[0].blockchainRid).isEqualTo(fakeTokenBridgeBrid.toHex())
     }
 
     @Test
@@ -496,9 +504,9 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
 
                     val restStatus = restStatus(appConfig)
                     assertThat(restStatus.size).isEqualTo(1)
-                    assertThat(restStatus[0].blockchainRid).isEqualTo(ecBrid.toHex())
+                    assertThat(restStatus[0].blockchainRid).isEqualTo(fakeTokenBridgeBrid.toHex())
                     assertThat(restStatus[0].status).isEqualTo(AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED)
-                    val anomalies = restAnomalies(appConfig, ecBrid)
+                    val anomalies = restAnomalies(appConfig, fakeTokenBridgeBrid)
                     assertThat(anomalies.anomalies.size).isEqualTo(1)
                 }
     }
