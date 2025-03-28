@@ -9,6 +9,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.slf4j.MDCContext
 import net.postchain.chain0.common.queries.getClusterBlockchains
+import net.postchain.chain0.common.queries.getNodeData
 import net.postchain.chain0.common.queries.listClustersOfNode
 import net.postchain.chain0.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.chain0.economy_chain_in_directory_chain.getEconomyChainRid
@@ -105,7 +106,9 @@ class AnomalyDetectorsManager(
             val currentBlockHeight = blockchainPostchainClient.currentBlockHeight()
             val directoryChainPostchainClient = createPostchainClient(appConfig.nodeUrl, directoryChainBrid)
             val clusterManagement = clusterManagementProvider(directoryChainPostchainClient)
+            val ourApiUrl = directoryChainPostchainClient.getNodeData(appConfig.nodePubKey).apiUrl
             val blockchainApiUrls = clusterManagement.getBlockchainApiUrls(blockchain.blockchainRid)
+                    .filter { it != ourApiUrl }
             val highestBlockheightOverNodes = blockchainApiUrls
                     .map { createPostchainClient(it, blockchain.blockchainRid) }
                     .map { it.currentBlockHeight() }
