@@ -49,7 +49,7 @@ class AnomalyDetectorsManager(
         const val SYSTEM_CLUSTER = "system"
     }
 
-    private val anomalyDetectors = mutableMapOf<String, AnomalyDetector>()
+    private val anomalyDetectors = mutableMapOf<BlockchainBridge, AnomalyDetector>()
     private lateinit var bridgeMonitorJob: Job
     private lateinit var directoryChainBrid: BlockchainRid
     private lateinit var economyChainBrid: BlockchainRid
@@ -86,7 +86,7 @@ class AnomalyDetectorsManager(
         tokenChainBrid = directoryChainClient.getTokenChainRid().let { if (it.size == 32) BlockchainRid(it) else null }
     }
 
-    fun getAnomalyDetectors(): Map<String, AnomalyDetector> = anomalyDetectors.toImmutableMap()
+    fun getAnomalyDetectors(): Map<BlockchainBridge, AnomalyDetector> = anomalyDetectors.toImmutableMap()
 
     private fun setupAndStopDetectors() {
 
@@ -100,7 +100,7 @@ class AnomalyDetectorsManager(
         startDetectors(blockchainsToStart)
     }
 
-    private fun blockchainSyncCheck(blockchain: Blockchain): Boolean {
+    private fun blockchainSyncCheck(blockchain: BlockchainBridge): Boolean {
         try {
             val blockchainPostchainClient = createPostchainClient(appConfig.nodeUrl, blockchain.blockchainRid)
             val currentBlockHeight = blockchainPostchainClient.currentBlockHeight()
@@ -125,7 +125,7 @@ class AnomalyDetectorsManager(
         }
     }
 
-    private fun startDetectors(blockchainsToStart: List<Blockchain>) {
+    private fun startDetectors(blockchainsToStart: List<BlockchainBridge>) {
 
         for (blockchainToMonitor in blockchainsToStart) {
 
@@ -148,35 +148,34 @@ class AnomalyDetectorsManager(
                         client,
                         postchainClient,
                         blockchainToMonitor.bridgeContract,
-                        blockchainToMonitor.evmNetworkId,
                 )
-                anomalyDetectors[blockchainToMonitor.blockchainRid.toHex()] = anomalyDetector
+                anomalyDetectors[blockchainToMonitor] = anomalyDetector
                 anomalyDetector.start()
             }
         }
     }
 
-    private fun stopDetectors(detectorsToStop: Map<String, AnomalyDetector>) {
+    private fun stopDetectors(detectorsToStop: Map<BlockchainBridge, AnomalyDetector>) {
 
-        detectorsToStop.forEach{ (bcRid, detector) ->
+        detectorsToStop.forEach{ (blockchainBridge, detector) ->
 
-            logger.info { "Stopping detector for bcrid $bcRid" }
+            logger.info { "Stopping detector for bridge: $blockchainBridge" }
 
             detector.stop()
-            anomalyDetectors.remove(bcRid)
+            anomalyDetectors.remove(blockchainBridge)
 
             // Close client if this was the last detector for this network
-            if (anomalyDetectors.values.none { it.networkId == detector.networkId }) {
-                web3jClientsManager.closeClient(detector.networkId)
+            if (anomalyDetectors.keys.none { it.evmNetworkId == blockchainBridge.evmNetworkId }) {
+                web3jClientsManager.closeClient(blockchainBridge.evmNetworkId)
             }
         }
     }
 
-    private fun getBlockchainsToStop(blockchainsToMonitor: List<Blockchain>) =
-            anomalyDetectors.filter { (key, _) -> blockchainsToMonitor.none { it.blockchainRid.toHex() == key } }
+    private fun getBlockchainsToStop(blockchainsToMonitor: List<BlockchainBridge>) =
+            anomalyDetectors.filterKeys { it !in blockchainsToMonitor }
 
-    private fun getBlockchainsToStart(blockchainsToMonitor: List<Blockchain>) =
-            blockchainsToMonitor.filter { !anomalyDetectors.containsKey(it.blockchainRid.toHex()) }
+    private fun getBlockchainsToStart(blockchainsToMonitor: List<BlockchainBridge>) =
+            blockchainsToMonitor.filter { !anomalyDetectors.containsKey(it) }
 
     fun stop() {
 
@@ -184,23 +183,23 @@ class AnomalyDetectorsManager(
         anomalyDetectors.values.forEach { it.stop() }
     }
 
-    private fun getBlockchainsToMonitor(appConfig: AppConfig): List<Blockchain> {
+    private fun getBlockchainsToMonitor(appConfig: AppConfig): List<BlockchainBridge> {
         val directoryChainClient = createPostchainClient(appConfig.nodeUrl, directoryChainBrid)
         val nodeClusters = directoryChainClient.listClustersOfNode(appConfig.nodePubKey)
 
-        val chainsToMonitor = mutableListOf<Blockchain>()
+        val chainsToMonitor = mutableListOf<BlockchainBridge>()
         if (nodeClusters.contains(SYSTEM_CLUSTER)) {
             val ecClient = createPostchainClient(appConfig.nodeUrl, economyChainBrid)
             val supportedNetworks = appConfig.evmConfig.keys.toList()
             chainsToMonitor += supportedNetworks.flatMap { networkId ->
                 ecClient.getBridgeContracts(networkId)
-                        .map { Blockchain(economyChainBrid, networkId, it.contractAddress.data.toHex().prefixedHex()) }
+                        .map { BlockchainBridge(economyChainBrid, networkId, it.contractAddress.data.toHex().prefixedHex()) }
             }
             if (tokenChainBrid != null) {
                 val tokenChainClient = createPostchainClient(appConfig.nodeUrl, economyChainBrid)
                 chainsToMonitor += supportedNetworks.flatMap { networkId ->
                     tokenChainClient.getBridgeContracts(networkId)
-                            .map { Blockchain(tokenChainBrid!!, networkId, it.contractAddress.data.toHex().prefixedHex()) }
+                            .map { BlockchainBridge(tokenChainBrid!!, networkId, it.contractAddress.data.toHex().prefixedHex()) }
                 }
             }
         }
@@ -212,7 +211,7 @@ class AnomalyDetectorsManager(
         if (runningDappChains.isNotEmpty()) {
             val ecClient = ChromiaClientProvider(clusterManagementProvider(directoryChainClient)).blockchain(economyChainBrid)
             chainsToMonitor += ecClient.getBlockchainsWithBridgeAndAnomalyDetection()
-                    .map { Blockchain(BlockchainRid(it.blockchainRid), it.evmNetworkId, it.bridgeContract.prefixedHex()) }
+                    .map { BlockchainBridge(BlockchainRid(it.blockchainRid), it.evmNetworkId, it.bridgeContract.prefixedHex()) }
                     .filter { runningDappChains.contains(it.blockchainRid) }
         }
 

@@ -8,7 +8,7 @@ import net.postchain.eif.bad.evm.Web3jClientsManager
 import net.postchain.eif.bad.rest.RestApi
 import java.io.File
 
-data class Blockchain(
+data class BlockchainBridge(
         val blockchainRid: BlockchainRid,
         val evmNetworkId: Long,
         val bridgeContract: String

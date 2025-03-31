@@ -476,7 +476,7 @@ class AnomalyDetectorIT : AnomalyDetectorTest() {
         logger.info { "verify correct withdraw request" }
         withdraw()
 
-        var anomalyDetectors = mapOf<String, AnomalyDetector>()
+        var anomalyDetectors = mapOf<BlockchainBridge, AnomalyDetector>()
 
         Awaitility.await()
                 .atMost(Duration.TEN_SECONDS)

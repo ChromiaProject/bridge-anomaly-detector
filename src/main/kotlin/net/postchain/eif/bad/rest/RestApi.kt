@@ -1,6 +1,8 @@
 package net.postchain.eif.bad.rest
 
 import mu.KLogging
+import net.postchain.common.BlockchainRid
+import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
 import net.postchain.eif.bad.AnomalyDetector
 import net.postchain.eif.bad.AnomalyDetectorStatus
@@ -41,7 +43,7 @@ data class AnomalyDetectorStatusResponse(
         val blockchainRid: String,
         val status: AnomalyDetectorStatus,
         val networkId: Long,
-        val tokenBridgeContractAddresses: String,
+        val tokenBridgeContractAddress: String,
         val logsProcessed: Long,
         val anomaliesDetected: Long,
         val logsVerified: Long,
@@ -50,18 +52,20 @@ data class AnomalyDetectorStatusResponse(
 
 data class AnomalyResponse(
         val transactionHash: String,
-        var height: Long,
-        var brid: String,
-        var lastUpdatedTimestamp: Long? = null,
-        var nextActionTimestamp: Long? = null,
+        val height: Long,
+        val brid: String,
+        val lastUpdatedTimestamp: Long? = null,
+        val nextActionTimestamp: Long? = null,
 )
 
 data class AnomaliesResponse(
-        var anomalies: List<AnomalyResponse> = mutableListOf(),
-        var potentialAnomalies: List<AnomalyResponse> = mutableListOf()
+        val evmNetworkId: Long,
+        val tokenBridgeContractAddress: String,
+        val anomalies: List<AnomalyResponse> = mutableListOf(),
+        val potentialAnomalies: List<AnomalyResponse> = mutableListOf()
 )
 
-val anomaliesBody = Body.auto<AnomaliesResponse>().toLens()
+val anomaliesBody = Body.auto<List<AnomaliesResponse>>().toLens()
 val statusBody = Body.auto<List<AnomalyDetectorStatusResponse>>().toLens()
 val versionBody = Body.auto<Version>().toLens()
 val errorJsonBody = Body.auto<ErrorBody>().toLens()
@@ -93,13 +97,18 @@ class RestApi(
             return errorResponse(request, BAD_REQUEST, "Missing blockchainRid")
         }
 
-        val anomalyDetector = anomalyDetectorsManager.getAnomalyDetectors()[bcRid]
-                ?: return errorResponse(request, BAD_REQUEST, "No anomaly detector for blockchainRid $bcRid[0]")
+        val anomalyDetectors = anomalyDetectorsManager.getAnomalyDetectors()
+                .filterKeys { it.blockchainRid == BlockchainRid(bcRid.hexStringToByteArray()) }
+        if (anomalyDetectors.isEmpty()) return errorResponse(request, BAD_REQUEST, "No anomaly detector for blockchainRid $bcRid[0]")
 
-        return Response(OK).with(anomaliesBody of AnomaliesResponse(
-                anomalies = getAnomaliesAndTasks(anomalyDetector),
-                potentialAnomalies = mapAnomalyTasks(anomalyDetector, LogVerificationStatus.RETRY)
-        ))
+        return Response(OK).with(anomaliesBody of anomalyDetectors.map { (blockchainBridge, anomalyDetector) ->
+            AnomaliesResponse(
+                    evmNetworkId = blockchainBridge.evmNetworkId,
+                    tokenBridgeContractAddress = blockchainBridge.bridgeContract,
+                    anomalies = getAnomaliesAndTasks(anomalyDetector),
+                    potentialAnomalies = mapAnomalyTasks(anomalyDetector, LogVerificationStatus.RETRY)
+            )
+        })
     }
 
     private fun getAnomaliesAndTasks(anomalyDetector: AnomalyDetector): List<AnomalyResponse> {
@@ -115,10 +124,10 @@ class RestApi(
         val statuses = anomalyDetectorsManager.getAnomalyDetectors()
                 .map {
                     AnomalyDetectorStatusResponse(
-                            it.key,
+                            it.key.blockchainRid.toHex(),
                             it.value.anomalyDetectorStatus,
-                            it.value.networkId,
-                            it.value.tokenBridgeContractAddresses,
+                            it.key.evmNetworkId,
+                            it.key.bridgeContract,
                             it.value.logsProcessed,
                             it.value.anomaliesDetected,
                             it.value.logsVerified,
