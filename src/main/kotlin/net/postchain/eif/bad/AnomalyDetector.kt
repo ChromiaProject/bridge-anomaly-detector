@@ -36,8 +36,7 @@ class AnomalyDetector(
         private val web3jRequestHandler: Web3jRequestHandler,
         private val web3jClient: Web3jClient,
         private val postchainClient: PostchainClient,
-        val tokenBridgeContractAddresses: String,
-        val networkId: Long,
+        val tokenBridgeContractAddresses: String
 ) {
 
     private var logSubscription: Disposable? = null

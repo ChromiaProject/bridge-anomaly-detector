@@ -107,7 +107,7 @@ abstract class AnomalyDetectorTest : EvmTestBase("EvmEventReceiver_EvmContainerL
         return statusBody(response)
     }
 
-    fun restAnomalies(appConfig: AppConfig, bcRid: BlockchainRid): AnomaliesResponse {
+    fun restAnomalies(appConfig: AppConfig, bcRid: BlockchainRid): List<AnomaliesResponse> {
         val response = restApiHttpHandler().invoke(Request(Method.GET, "http://localhost:${appConfig.restApiConfig.port}/anomalies/${bcRid.toHex()}"))
         assertThat(response.status).isEqualTo(Status.OK)
         return anomaliesBody(response)

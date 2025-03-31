@@ -507,7 +507,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
                     assertThat(restStatus[0].blockchainRid).isEqualTo(fakeTokenBridgeBrid.toHex())
                     assertThat(restStatus[0].status).isEqualTo(AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED)
                     val anomalies = restAnomalies(appConfig, fakeTokenBridgeBrid)
-                    assertThat(anomalies.anomalies.size).isEqualTo(1)
+                    assertThat(anomalies.first().anomalies.size).isEqualTo(1)
                 }
     }
 
