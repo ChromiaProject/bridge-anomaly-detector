@@ -68,7 +68,7 @@ import net.postchain.gtv.mapper.toObject
 import net.postchain.images.directory1.FTAuthenticator
 import net.postchain.images.directory1.awaitQueryResult
 import net.postchain.images.directory1.awaitUntilAsserted
-import net.postchain.images.directory1.registerAccount
+import net.postchain.images.directory1.createAccount
 import org.awaitility.Awaitility
 import org.awaitility.Duration
 import org.junit.jupiter.api.AfterAll
@@ -235,7 +235,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
                 .postTransactionUntilConfirmed("Init $EC_CHAIN_NAME")
         testLogger.info { "$EC_CHAIN_NAME initialized" }
 
-        aliceECAuthDescriptor = registerAccount(node1, ecAdminKeyPair, ecBrid, aliceKeyPair, "Alice")
+        aliceECAuthDescriptor = createAccount(node1, accountCreatorKeyPair, ecBrid, aliceKeyPair, "Alice")
         linkAccount(aliceECAuthDescriptor, aliceEvmCredentials, ecBrid)
 
         // Claim initial supply
