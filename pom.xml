@@ -19,11 +19,11 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.28.4</postchain.version>
-        <postchain.chromia.version>3.27.3</postchain.chromia.version>
+        <postchain.version>3.30.0</postchain.version>
+        <postchain.chromia.version>3.28.2</postchain.chromia.version>
         <postchain.client.version>3.25.0</postchain.client.version>
-        <eif.version>0.13.1</eif.version>
-        <directory.chain.version>1.82.6</directory.chain.version>
+        <eif.version>0.14.0</eif.version>
+        <directory.chain.version>1.86.0</directory.chain.version>
         <rell.maven.plugin.version>0.14.1</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>

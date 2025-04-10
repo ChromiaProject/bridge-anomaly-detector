@@ -210,7 +210,7 @@ class AnomalyDetectorsManager(
 
         if (runningDappChains.isNotEmpty()) {
             val ecClient = ChromiaClientProvider(clusterManagementProvider(directoryChainClient)).blockchain(economyChainBrid)
-            chainsToMonitor += ecClient.getBlockchainsWithBridgeAndAnomalyDetection()
+            chainsToMonitor += ecClient.getBlockchainsWithBridgeAndAnomalyDetection(includeExpired = false)
                     .map { BlockchainBridge(BlockchainRid(it.blockchainRid), it.evmNetworkId, it.bridgeContract.prefixedHex()) }
                     .filter { runningDappChains.contains(it.blockchainRid) }
         }
