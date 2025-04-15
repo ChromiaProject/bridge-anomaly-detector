@@ -27,7 +27,6 @@ import net.postchain.chain0.economy_chain.getLeasesByAccount
 import net.postchain.chain0.economy_chain.getTagByName
 import net.postchain.chain0.economy_chain.initOperation
 import net.postchain.chain0.economy_chain_in_directory_chain.initEconomyChainOperation
-import net.postchain.chain0.economy_chain_test_claim_tchr.faucetOperation
 import net.postchain.chain0.lib.ft4.core.accounts.AuthDescriptor
 import net.postchain.chain0.lib.ft4.core.accounts.AuthType
 import net.postchain.chain0.lib.ft4.external.assets.getAssetBalance
@@ -235,12 +234,6 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
 
         aliceECAuthDescriptor = createAccount(node1, accountCreatorKeyPair, ecBrid, aliceKeyPair, "Alice")
         linkAccount(aliceECAuthDescriptor, aliceEvmCredentials, ecBrid)
-
-        // Claim initial supply
-        aliceECAuthDescriptor.verifyOperationAuthFlags("faucet")
-        aliceECAuthDescriptor.transactionBuilder()
-                .faucetOperation()
-                .postTransactionUntilConfirmed("Claiming initial supply")
 
         node1.client(ecBrid, listOf(aliceKeyPair)).getBalance(aliceECAuthDescriptor.accountId)
 
