@@ -242,7 +242,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         testLogger.info("Adding tag")
         with(node1.ec) {
             transactionBuilder()
-                    .createTagOperation(APP_CLUSTER_TAG, 1, 1)
+                    .createTagOperation(node1.providerPubkey, APP_CLUSTER_TAG, 1, 1)
                     .postTransactionUntilConfirmed("$APP_CLUSTER_TAG tag created")
 
             makeVoteOnLatestProposal(node2)
@@ -255,7 +255,15 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
 
         with(node1.ec) {
             transactionBuilder()
-                    .createClusterOperation(APP_CLUSTER, "SYSTEM_P", PROVIDER_1_AND_3_VS, 1, 0, APP_CLUSTER_TAG)
+                    .createClusterOperation(
+                            node1.providerPubkey, APP_CLUSTER, "SYSTEM_P", PROVIDER_1_AND_3_VS, 1, 0, APP_CLUSTER_TAG,
+                            containerUnitCpu = 1,
+                            containerUnitRam = 1,
+                            containerUnitIoRead = 1,
+                            containerUnitIoWrite = 1,
+                            containerUnitStorage = 1,
+                            systemContainerUnits = 1,
+                    )
                     .postTransactionUntilConfirmed("$APP_CLUSTER created")
 
             // Approve APP_CLUSTER
@@ -460,7 +468,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest() {
         logger.info { "deposit token on evm" }
 
         // Deposit token on EVM smart contract to bridge it to postchain
-        for (i in 1..depositNum) {
+        (1..depositNum).forEach { i ->
             bridge.deposit(Address(testToken.contractAddress), Uint256(depositAmount)).send()
         }
         // check the balance on EVM
