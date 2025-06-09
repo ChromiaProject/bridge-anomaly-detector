@@ -196,7 +196,7 @@ class AnomalyDetectorsManager(
                         .map { BlockchainBridge(economyChainBrid, networkId, it.contractAddress.data.toHex().prefixedHex()) }
             }
             if (tokenChainBrid != null) {
-                val tokenChainClient = createPostchainClient(appConfig.nodeUrl, economyChainBrid)
+                val tokenChainClient = createPostchainClient(appConfig.nodeUrl, tokenChainBrid!!)
                 chainsToMonitor += supportedNetworks.flatMap { networkId ->
                     tokenChainClient.getBridgeContracts(networkId)
                             .map { BlockchainBridge(tokenChainBrid!!, networkId, it.contractAddress.data.toHex().prefixedHex()) }
