@@ -34,7 +34,7 @@ import org.web3j.abi.datatypes.generated.Uint256
 import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 
-abstract class AnomalyDetectorTest : EvmTestBase("EvmEventReceiver_EvmContainerLogger") {
+abstract class AnomalyDetectorTest(logDir: String) : EvmTestBase(logDir) {
 
     companion object {
         val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
