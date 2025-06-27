@@ -5,7 +5,6 @@ import assertk.assertions.isEqualTo
 import assertk.assertions.isFalse
 import assertk.assertions.isNotNull
 import assertk.assertions.isTrue
-import mu.KotlinLogging
 import net.postchain.chain0.common.init.initOperation
 import net.postchain.chain0.common.operations.addNodeToClusterOperation
 import net.postchain.chain0.common.operations.registerNodeWithUnitsOperation
@@ -43,7 +42,6 @@ import net.postchain.cm.cm_api.ClusterManagementImpl
 import net.postchain.common.BlockchainRid
 import net.postchain.common.hexStringToByteArray
 import net.postchain.common.toHex
-import net.postchain.crypto.KeyPair
 import net.postchain.dapp.postTransactionUntilConfirmed
 import net.postchain.eif.EventMerkleProof
 import net.postchain.eif.bad.config.AnomalyConfig
@@ -77,7 +75,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestMethodOrder
 import org.junitpioneer.jupiter.DisableIfTestFails
-import org.testcontainers.containers.output.Slf4jLogConsumer
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.web3j.abi.FunctionEncoder
 import org.web3j.abi.datatypes.Address
@@ -101,30 +98,24 @@ import java.util.concurrent.TimeUnit
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
 @DisableIfTestFails
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
-
-    companion object {
-        private val node1Logger = KotlinLogging.logger("EvmEventReceiver_Node1Logger")
-        private val node2Logger = KotlinLogging.logger("EvmEventReceiver_Node2Logger")
-        private val node3Logger = KotlinLogging.logger("EvmEventReceiver_Node3Logger")
-    }
+class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-incorrect-withdraw-no-pause") {
 
     init {
         // Nodes
         chain0Config = this::class.java.getResource("/directory1deployment/mainnet.xml")!!.readText()
-        node1 = postchainServer("node1", Slf4jLogConsumer(node1Logger.underlyingLogger, true),
+        node1 = postchainServer("node1",
                 provider1KeyPair,
                 "/net/postchain/images/directory1/config-no-subnodes")
                 .withEifEnv()
-        node2 = postchainServer("node2", Slf4jLogConsumer(node2Logger.underlyingLogger, true),
-                KeyPair.of("03F9ABC05F7D7639AEC97B18784D5C83CA82D1EAF8F96DC31E77A83F21DDE67F95", "FFC28105CFE2CC336624DCDFDEDB58157B37ED565C29F11A3B54B8F721DBA7C5"),
+        node2 = postchainServer("node2",
+                provider2KeyPair,
                 "/net/postchain/images/directory1/config-no-subnodes")
                 .withEnv("POSTCHAIN_GENESIS_PUBKEY", node1.pubkey.hex())
                 .withEnv("POSTCHAIN_GENESIS_HOST", node1.nodeHost)
                 .withEnv("POSTCHAIN_GENESIS_PORT", node1.nodePort.toString())
                 .withEifEnv()
-        node3 = postchainServer("node3", Slf4jLogConsumer(node3Logger.underlyingLogger, true),
-                KeyPair.of("03D01591E5466B07AC1D1F77BEBE2164AB0BA31366FBF005907F28FD144D64B871", "AD329F5C4E4DDF226D1A4948D7A2CCB34E76F64D4972B934FDBBDBEF4CA7B905"),
+        node3 = postchainServer("node3",
+                provider3KeyPair,
                 "/net/postchain/images/directory1/config-no-subnodes")
                 .withEnv("POSTCHAIN_GENESIS_PUBKEY", node1.pubkey.hex())
                 .withEnv("POSTCHAIN_GENESIS_HOST", node1.nodeHost)
@@ -259,7 +250,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest() {
                             containerUnitRam = 1,
                             containerUnitIoRead = 1,
                             containerUnitIoWrite = 1,
-                            containerUnitStorage = 1,
+                            containerUnitStorage = 17000,
                             systemContainerUnits = 1,
                     )
                     .postTransactionUntilConfirmed("$APP_CLUSTER created")
