@@ -590,13 +590,12 @@ class AnomalyDetectorIT : AnomalyDetectorTest("bad") {
                 .atMost(Duration(BRIDGE_CHAIN_REFRESH_INTERVAL_MS * 2, TimeUnit.SECONDS))
                 .untilAsserted {
                     assertThat(anomalyDetectorsManager.getAnomalyDetectors().size).isEqualTo(0)
+                    val restStatus = restStatus(appConfig)
+                    assertThat(restStatus.size).isEqualTo(0)
+
+                    // Make sure the client is shutdown
+                    assertThat(tokenBridgeClientsManager.hasNetworkClient(networkId)).isFalse()
                 }
-
-        val restStatus = restStatus(appConfig)
-        assertThat(restStatus.size).isEqualTo(0)
-
-        // Make sure the client is shutdown
-        assertThat(tokenBridgeClientsManager.hasNetworkClient(networkId)).isFalse()
     }
 
     private fun withdraw() {
