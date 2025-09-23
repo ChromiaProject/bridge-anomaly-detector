@@ -99,7 +99,7 @@ class EvmLogProcessor(
         val filter = EthFilter(
                 DefaultBlockParameter.valueOf(from.toBigInteger()),
                 DefaultBlockParameter.valueOf(to.toBigInteger()),
-                contractSubscriptions.keys.toList()
+                ArrayList(contractSubscriptions.keys)
         )
         filter.addOptionalTopics(*eventSignatures)
 
