@@ -142,44 +142,39 @@ class AnomalyDetectorsManager(
 
             val client = tokenBridgeClientsManager.getClient(blockchainToMonitor.evmNetworkId)
 
-            val evmLogProcessor = getOrCreateLogProcessor(blockchainToMonitor.evmNetworkId)
-            if (evmLogProcessor != null) {
-                val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
-
-                val anomalyDetector = AnomalyDetector(
-                        appConfig.anomalyConfig,
-                        eventMap,
-                        client,
-                        postchainClient,
-                        blockchainToMonitor.bridgeContract,
-                )
-                anomalyDetectors[blockchainToMonitor] = anomalyDetector
-                evmLogProcessor.addContractSubscription(blockchainToMonitor.bridgeContract, anomalyDetector::onLog)
+            val evmLogProcessor = try {
+                getOrCreateLogProcessor(blockchainToMonitor.evmNetworkId)
+            } catch (e: UserMistake) {
+                logger.error("Failed to set up detector for bcRid ${blockchainToMonitor.blockchainRid.toHex()}, network ${blockchainToMonitor.evmNetworkId} and bridge contract ${blockchainToMonitor.bridgeContract}: ${e.message}")
+                continue
             }
+            val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
+
+            val anomalyDetector = AnomalyDetector(
+                    appConfig.anomalyConfig,
+                    eventMap,
+                    client,
+                    postchainClient,
+                    blockchainToMonitor.bridgeContract,
+            )
+            anomalyDetectors[blockchainToMonitor] = anomalyDetector
+            evmLogProcessor.addContractSubscription(blockchainToMonitor.bridgeContract, anomalyDetector::onLog)
         }
     }
 
-    private fun getOrCreateLogProcessor(networkId: Long): EvmLogProcessor? {
-        val existingProcessor = logProcessors[networkId]
-
-        return if (existingProcessor != null) {
-            existingProcessor
-        } else {
-            val evmConfig = appConfig.evmConfig[networkId]
-            if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
-                logger.error { "No rpc urls set for network ${networkId}" }
-                null
-            } else {
-                val newProcessor = EvmLogProcessor(
-                        evmConfig.logProcessorConfig,
-                        eventMap.keys.toTypedArray(),
-                        createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls, networkId)
-                )
-
-                logProcessors[networkId] = newProcessor
-                newProcessor
-            }
+    private fun getOrCreateLogProcessor(networkId: Long): EvmLogProcessor = logProcessors.getOrPut(networkId) {
+        val evmConfig = appConfig.evmConfig[networkId]
+        if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
+            throw UserMistake("No rpc urls set for network $networkId")
         }
+        val newProcessor = EvmLogProcessor(
+                evmConfig.logProcessorConfig,
+                eventMap.keys.toTypedArray(),
+                createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls, networkId)
+        )
+
+        logProcessors[networkId] = newProcessor
+        newProcessor
     }
 
     private fun stopDetectors(detectorsToStop: Map<BlockchainBridge, AnomalyDetector>) {
