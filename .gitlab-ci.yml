@@ -24,10 +24,6 @@ include:
         - "**/target/surefire-reports/TEST-*.xml"
         - "**/target/failsafe-reports/TEST-*.xml"
     expire_in: 1 week
-
-.setup_with_postgres:
-  extends:
-    - .setup
   before_script:
     - docker run
       --detach
@@ -81,8 +77,7 @@ deploy:
       clean source:jar deploy
 
 build:
-  extends:
-    - .setup_with_postgres
+  extends: .setup
   stage: build
   interruptible: true
   except:
