@@ -23,7 +23,7 @@ import net.postchain.client.request.EndpointPool
 import net.postchain.common.BlockchainRid
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
-import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.TokenBridgeClientsManager
 import net.postchain.eif.bad.evm.Web3jRequestHandler
 import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import okhttp3.internal.toImmutableMap
@@ -33,27 +33,36 @@ import net.postchain.common.exception.UserMistake
 import net.postchain.common.toHex
 import net.postchain.d1.client.ChromiaClientProvider
 import net.postchain.d1.cluster.ClusterManagement
+import net.postchain.eif.bad.evm.EvmLogProcessor
+import net.postchain.eif.contracts.TokenBridge
+import org.web3j.abi.EventEncoder
 
 class AnomalyDetectorsManager(
         private val appConfig: AppConfig,
-        private val web3jClientsManager: Web3jClientsManager,
+        private val tokenBridgeClientsManager: TokenBridgeClientsManager,
         private val clusterManagementProvider: (PostchainQuery) -> ClusterManagement
 ) {
 
     constructor(
             appConfig: AppConfig,
-            web3jClientsManager: Web3jClientsManager,
-    ) : this(appConfig, web3jClientsManager, ::ClusterManagementImpl)
+            tokenBridgeClientsManager: TokenBridgeClientsManager,
+    ) : this(appConfig, tokenBridgeClientsManager, ::ClusterManagementImpl)
 
     companion object {
         const val SYSTEM_CLUSTER = "system"
     }
 
     private val anomalyDetectors = mutableMapOf<BlockchainBridge, AnomalyDetector>()
+    private val logProcessors = mutableMapOf<Long, EvmLogProcessor>() // network id -> log processor
     private lateinit var bridgeMonitorJob: Job
     private lateinit var directoryChainBrid: BlockchainRid
     private lateinit var economyChainBrid: BlockchainRid
     private var tokenChainBrid: BlockchainRid? = null
+    private val eventMap = listOf(
+            TokenBridge.PAUSED_EVENT,
+            TokenBridge.UNPAUSED_EVENT,
+            TokenBridge.WITHDRAWREQUEST_EVENT
+    ).associateBy { EventEncoder.encode(it) }
 
     fun start() {
         initializeBrids()
@@ -131,26 +140,44 @@ class AnomalyDetectorsManager(
 
             logger.info { "Setting up anomaly detector for bcRid ${blockchainToMonitor.blockchainRid.toHex()}, network ${blockchainToMonitor.evmNetworkId} and bridge contract ${blockchainToMonitor.bridgeContract}" }
 
-            val client = web3jClientsManager.getClient(blockchainToMonitor.evmNetworkId)
+            val client = tokenBridgeClientsManager.getClient(blockchainToMonitor.evmNetworkId)
 
-            val evmConfig = appConfig.evmConfig[blockchainToMonitor.evmNetworkId]
-            if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
-                logger.error { "No rpc urls set for network ${blockchainToMonitor.evmNetworkId}" }
-            } else {
-
-                val web3jRequestHandler = createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls)
+            val evmLogProcessor = getOrCreateLogProcessor(blockchainToMonitor.evmNetworkId)
+            if (evmLogProcessor != null) {
                 val postchainClient = createPostchainClient(appConfig.nodeUrl, blockchainToMonitor.blockchainRid)
 
                 val anomalyDetector = AnomalyDetector(
                         appConfig.anomalyConfig,
-                        evmConfig.logProcessorConfig,
-                        web3jRequestHandler,
+                        eventMap,
                         client,
                         postchainClient,
                         blockchainToMonitor.bridgeContract,
                 )
                 anomalyDetectors[blockchainToMonitor] = anomalyDetector
-                anomalyDetector.start()
+                evmLogProcessor.addContractSubscription(blockchainToMonitor.bridgeContract, anomalyDetector::onLog)
+            }
+        }
+    }
+
+    private fun getOrCreateLogProcessor(networkId: Long): EvmLogProcessor? {
+        val existingProcessor = logProcessors[networkId]
+
+        return if (existingProcessor != null) {
+            existingProcessor
+        } else {
+            val evmConfig = appConfig.evmConfig[networkId]
+            if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
+                logger.error { "No rpc urls set for network ${networkId}" }
+                null
+            } else {
+                val newProcessor = EvmLogProcessor(
+                        evmConfig.logProcessorConfig,
+                        eventMap.keys.toTypedArray(),
+                        createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls, networkId)
+                )
+
+                logProcessors[networkId] = newProcessor
+                newProcessor
             }
         }
     }
@@ -163,10 +190,11 @@ class AnomalyDetectorsManager(
 
             detector.stop()
             anomalyDetectors.remove(blockchainBridge)
+            logProcessors[blockchainBridge.evmNetworkId]?.removeContractSubscription(blockchainBridge.bridgeContract)
 
             // Close client if this was the last detector for this network
             if (anomalyDetectors.keys.none { it.evmNetworkId == blockchainBridge.evmNetworkId }) {
-                web3jClientsManager.closeClient(blockchainBridge.evmNetworkId)
+                tokenBridgeClientsManager.closeClient(blockchainBridge.evmNetworkId)
             }
         }
     }
@@ -226,10 +254,10 @@ class AnomalyDetectorsManager(
                             listOf()
                     ))
 
-    private fun createWeb3jRequestHandler(evmClientConfig: EvmClientConfig, rpcUrls: List<String>): Web3jRequestHandler {
+    private fun createWeb3jRequestHandler(evmClientConfig: EvmClientConfig, rpcUrls: List<String>, networkId: Long): Web3jRequestHandler {
 
         val web3jServices = buildServices(rpcUrls, evmClientConfig.connectTimeoutSeconds, evmClientConfig.readTimeoutSeconds, evmClientConfig.writeTimeoutSeconds)
-        val web3jRequestHandler = Web3jRequestHandler(web3jServices)
+        val web3jRequestHandler = Web3jRequestHandler(web3jServices, networkId)
 
         return web3jRequestHandler
     }

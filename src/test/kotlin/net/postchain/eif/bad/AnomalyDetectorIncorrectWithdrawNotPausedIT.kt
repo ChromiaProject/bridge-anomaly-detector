@@ -49,7 +49,7 @@ import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.config.EvmConfig
 import net.postchain.eif.bad.config.LogProcessorConfig
-import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.TokenBridgeClientsManager
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
@@ -375,8 +375,8 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-inc
                 )
         )
 
-        web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
-        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager) {
+        tokenBridgeClientsManager = TokenBridgeClientsManager(appConfig.evmConfig)
+        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, tokenBridgeClientsManager) {
             AnomalyContainerClusterManagement(
                     ClusterManagementImpl(it),
                     listOf(node1.apiPath())

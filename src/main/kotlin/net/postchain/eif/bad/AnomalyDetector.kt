@@ -1,17 +1,13 @@
 package net.postchain.eif.bad
 
-import io.reactivex.disposables.Disposable
 import mu.withLoggingContext
 import net.postchain.client.core.BlockDetail
 import net.postchain.client.core.PostchainClient
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.common.toHex
-import net.postchain.eif.bad.config.LogProcessorConfig
 import net.postchain.eif.bad.config.AnomalyConfig
-import net.postchain.eif.bad.evm.EvmLogProcessor
-import net.postchain.eif.bad.evm.Web3jClient
-import net.postchain.eif.bad.evm.Web3jRequestHandler
+import net.postchain.eif.bad.evm.TokenBridgeClient
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
@@ -32,19 +28,17 @@ enum class AnomalyDetectorStatus {
 
 class AnomalyDetector(
         private val anomalyConfig: AnomalyConfig,
-        private val logProcessorConfig: LogProcessorConfig,
-        private val web3jRequestHandler: Web3jRequestHandler,
-        private val web3jClient: Web3jClient,
+        private val eventMap: Map<String, Any>,
+        private val tokenBridgeClient: TokenBridgeClient,
         private val postchainClient: PostchainClient,
-        val tokenBridgeContractAddresses: String
+        private val tokenBridgeContractAddresses: String,
 ) {
 
-    private var logSubscription: Disposable? = null
     private var blockchainRid = postchainClient.config.blockchainRid
 
     // State
     var anomaliesCache = AnomaliesCache()
-    var anomalyDetectorStatus = AnomalyDetectorStatus.NO_ANOMALIES
+    var anomalyDetectorStatus = setInitialDetectorStatus()
         private set
     var logsProcessed = 0L
         private set
@@ -55,46 +49,16 @@ class AnomalyDetector(
     var lastBlockNumberProcessed = BigInteger.ZERO
         private set
 
-    // Log subscriptions
-    private val eventsToRead = listOf(
-            TokenBridge.PAUSED_EVENT,
-            TokenBridge.UNPAUSED_EVENT,
-            TokenBridge.WITHDRAWREQUEST_EVENT
-    )
-    private lateinit var evmLogProcessor: EvmLogProcessor
-
-    fun start() {
-
-        val currentBlockNumber = web3jRequestHandler.sendWeb3jRequest { it.ethBlockNumber() }.blockNumber
-
-        logInfo { "Starting anomaly detector for bcRid ${blockchainRid.toHex()} monitoring bridge contract ${tokenBridgeContractAddresses} from block number $currentBlockNumber" }
-
-        anomalyDetectorStatus = setInitialDetectorStatus()
-
-        setupLogProcessorJob(currentBlockNumber.toLong())
-    }
-
-    private fun setupLogProcessorJob(currentBlockNumber: Long) {
-        evmLogProcessor = EvmLogProcessor(
-                logProcessorConfig,
-                tokenBridgeContractAddresses,
-                eventsToRead,
-                currentBlockNumber,
-                web3jClient,
-                ::onLog
-        )
-    }
-
     private fun queryIsTokenBridgePaused(): Boolean {
 
-        return web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
+        return tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
             it.paused()
         }.value
     }
 
-    private fun onLog(log: Log) {
+    fun onLog(log: Log) {
 
-        val event = evmLogProcessor.getEventType(log)
+        val event = eventMap[log.topics[0]]
         lastBlockNumberProcessed = log.blockNumber
 
         logger.info { "Received log event $log." }
@@ -103,6 +67,7 @@ class AnomalyDetector(
             TokenBridge.PAUSED_EVENT -> bridgePaused()
             TokenBridge.UNPAUSED_EVENT -> bridgeUnpaused()
             TokenBridge.WITHDRAWREQUEST_EVENT -> withdrawRequestEvent(log)
+            else -> logWarn { "Unknown event: $event" }
         }
     }
 
@@ -205,7 +170,7 @@ class AnomalyDetector(
             anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED
 
         } else {
-            web3jClient.withTokenBridge(tokenBridgeContractAddresses) {
+            tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
                 it.pause()
             }
             anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
@@ -224,9 +189,7 @@ class AnomalyDetector(
     }
 
     fun stop() {
-        logSubscription?.apply { dispose() }
         anomaliesCache.cancelTimer()
-        evmLogProcessor.shutdown()
     }
 
     private fun setInitialDetectorStatus() = if (queryIsTokenBridgePaused())

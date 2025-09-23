@@ -50,7 +50,7 @@ import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.config.EvmConfig
 import net.postchain.eif.bad.config.LogProcessorConfig
-import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.TokenBridgeClientsManager
 import net.postchain.eif.contracts.TestToken
 import net.postchain.eif.contracts.TokenBridge
 import net.postchain.eif.contracts.Validator
@@ -377,8 +377,8 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest("bad-incorrect-wi
                 )
         )
 
-        web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
-        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager) {
+        tokenBridgeClientsManager = TokenBridgeClientsManager(appConfig.evmConfig)
+        anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, tokenBridgeClientsManager) {
             AnomalyContainerClusterManagement(
                     ClusterManagementImpl(it),
                     listOf(node1.apiPath())
@@ -524,7 +524,7 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest("bad-incorrect-wi
         assertThat(restStatus.size).isEqualTo(0)
 
         // Make sure the client is shutdown
-        assertThat(web3jClientsManager.hasNetworkClient(networkId)).isFalse()
+        assertThat(tokenBridgeClientsManager.hasNetworkClient(networkId)).isFalse()
     }
 
     private fun withdrawRequest() {
