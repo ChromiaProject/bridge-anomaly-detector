@@ -9,6 +9,7 @@ import java.io.Closeable
 
 open class Web3jRequestHandler(
         private val web3jServices: List<Web3j>,
+        val networkId: Long,
 ) : Closeable {
 
     open fun <T : Response<*>> sendWeb3jRequest(

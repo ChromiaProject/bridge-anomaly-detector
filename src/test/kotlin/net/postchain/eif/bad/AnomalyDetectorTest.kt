@@ -7,7 +7,7 @@ import net.postchain.common.BlockchainRid
 import net.postchain.crypto.KeyPair
 import net.postchain.d1.cluster.ClusterManagement
 import net.postchain.eif.bad.config.AppConfig
-import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.TokenBridgeClientsManager
 import net.postchain.eif.bad.rest.AnomaliesResponse
 import net.postchain.eif.bad.rest.AnomalyDetectorStatusResponse
 import net.postchain.eif.bad.rest.RestApi
@@ -72,7 +72,7 @@ abstract class AnomalyDetectorTest(logDir: String) : EvmTestBase(logDir) {
     lateinit var withdrawAmount: BigInteger
     lateinit var assetId: ByteArray
     lateinit var appConfig: AppConfig
-    lateinit var web3jClientsManager: Web3jClientsManager
+    lateinit var tokenBridgeClientsManager: TokenBridgeClientsManager
     lateinit var anomalyDetectorsManager: AnomalyDetectorsManager
     lateinit var restApi: RestApi
 

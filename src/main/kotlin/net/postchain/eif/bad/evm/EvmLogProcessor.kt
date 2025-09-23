@@ -5,52 +5,75 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.slf4j.MDCContext
 import mu.KLogging
-import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.eif.bad.config.LogProcessorConfig
-import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.Event
 import org.web3j.protocol.core.DefaultBlockParameter
 import org.web3j.protocol.core.methods.request.EthFilter
 import org.web3j.protocol.core.methods.response.EthLog
 import org.web3j.protocol.core.methods.response.Log
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.min
 
 /**
  * Reads logs from evm chain and calls the given onLog function on each log entry.
  */
 class EvmLogProcessor(
         private val logProcessorConfig: LogProcessorConfig,
-        private val contractAddresses: String,
-        events: List<Event>,
-        skipToHeight: Long,
-        private val web3jClient: Web3jClient,
-        private val onLog: (Log) -> Unit,
+        private val eventSignatures: Array<String>,
+        private val web3jClient: Web3jRequestHandler,
 ) {
 
-    private val job: Job
+    private var job: Job? = null
 
     companion object : KLogging()
 
-    private val eventMap = events.associateBy(EventEncoder::encode)
-    private val eventSignatures = eventMap.keys.toTypedArray()
+    private val contractSubscriptions = ConcurrentHashMap<String, (Log) -> Unit>()
 
-    var lastReadBlockNumber = skipToHeight
+    var lastReadBlockNumber = -1L
         private set
 
-    init {
-        job = CoroutineScope(Dispatchers.IO).launch(CoroutineName("${contractAddresses}-log-processor") + MDCContext()) {
+    fun addContractSubscription(contractAddress: String, onLog: (Log) -> Unit) {
+        contractSubscriptions[contractAddress.lowercase()] = onLog
+
+        if (job == null) {
+            start()
+        }
+    }
+
+    fun removeContractSubscription(contractAddress: String) {
+        if (contractSubscriptions.containsKey(contractAddress) && contractSubscriptions.size == 1) {
+            stop()
+        }
+
+        contractSubscriptions.remove(contractAddress.lowercase())
+    }
+
+    private fun start() {
+        lastReadBlockNumber = web3jClient.sendWeb3jRequest { it.ethBlockNumber() }.blockNumber.toLong() - logProcessorConfig.readOffset
+
+        logger.info { "Starting log processor for network id ${web3jClient.networkId} with last read block number: $lastReadBlockNumber" }
+
+        job = CoroutineScope(Dispatchers.IO).launch(CoroutineName("network-${web3jClient.networkId}-log-processor") + MDCContext()) {
+            var backoffMs = 500L
+            val maxBackoffMs = 60_000L
             while (isActive) {
                 try {
                     fetchEvents()
-                } catch (e: CancellationException) {
+                    // Reset backoff after a successful iteration
+                    backoffMs = 500L
+                } catch (_: CancellationException) {
                     break
                 } catch (e: Exception) {
                     logger.error("Parsing of EVM logs unexpectedly failed: $e", e)
-                    delay(500) // Delay a bit and hope that we can recover
+                    logger.info { "Retrying failed log fetching after ${backoffMs}ms..." }
+                    delay(backoffMs)
+                    backoffMs = min(maxBackoffMs, backoffMs * 2)
                 }
             }
         }
@@ -60,7 +83,7 @@ class EvmLogProcessor(
 
         val from = lastReadBlockNumber + 1
 
-        val blockNumberReply = web3jClient.sendRequest { it.ethBlockNumber() }
+        val blockNumberReply = web3jClient.sendWeb3jRequest { it.ethBlockNumber() }
         val currentBlockHeight = blockNumberReply.blockNumber.toLong() - logProcessorConfig.readOffset
 
         // Pacing the reading of logs
@@ -76,12 +99,12 @@ class EvmLogProcessor(
         val filter = EthFilter(
                 DefaultBlockParameter.valueOf(from.toBigInteger()),
                 DefaultBlockParameter.valueOf(to.toBigInteger()),
-                contractAddresses
+                ArrayList(contractSubscriptions.keys)
         )
         filter.addOptionalTopics(*eventSignatures)
 
         val logs = web3jClient
-                .sendRequest { it.ethGetLogs(filter) }
+                .sendWeb3jRequest { it.ethGetLogs(filter) }
                 .logs
                 .map { (it as EthLog.LogObject).get() }
 
@@ -94,7 +117,7 @@ class EvmLogProcessor(
     ) {
         for (log in logs) {
             try {
-                onLog(log)
+                contractSubscriptions[log.address.lowercase()]?.invoke(log)
             } catch (e: Exception) {
                 logger.error(e) { "Failed ot process log event: ${e.message}" }
             }
@@ -102,11 +125,12 @@ class EvmLogProcessor(
         lastReadBlockNumber = newLastReadLogBlockHeight
     }
 
-    fun shutdown() {
-        job.cancel()
-    }
+    fun stop() {
+        logger.info { "Stopping log processor for network id ${web3jClient.networkId}" }
 
-    fun getEventType(log: Log): Any {
-        return eventMap[log.topics[0]] ?: throw ProgrammerMistake("No matching event for log: $log")
+        runBlocking {
+            job?.cancelAndJoin()
+        }
+        job = null
     }
 }

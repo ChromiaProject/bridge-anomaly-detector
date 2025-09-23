@@ -4,7 +4,7 @@ import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.BlockchainRid
 import net.postchain.eif.bad.config.AppConfig
 import net.postchain.eif.bad.config.RestApiConfig
-import net.postchain.eif.bad.evm.Web3jClientsManager
+import net.postchain.eif.bad.evm.TokenBridgeClientsManager
 import net.postchain.eif.bad.rest.RestApi
 import java.io.File
 
@@ -27,8 +27,8 @@ fun main(args: Array<String>) {
         logger.warn { "!!! Bridge will never be paused since pauseOnAnomaly is set to false !!!" }
     }
 
-    val web3jClientsManager = Web3jClientsManager(appConfig.evmConfig)
-    val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, web3jClientsManager)
+    val tokenBridgeClientsManager = TokenBridgeClientsManager(appConfig.evmConfig)
+    val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, tokenBridgeClientsManager)
     anomalyDetectorsManager.start()
 
     startRestApi(appConfig.restApiConfig, anomalyDetectorsManager)

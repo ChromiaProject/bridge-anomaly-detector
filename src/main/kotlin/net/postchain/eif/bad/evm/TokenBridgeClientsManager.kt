@@ -3,14 +3,15 @@ package net.postchain.eif.bad.evm
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
 import net.postchain.eif.bad.config.EvmConfig
+import java.util.concurrent.ConcurrentHashMap
 
-class Web3jClientsManager(
+class TokenBridgeClientsManager(
         private val evmConfigs: Map<Long, EvmConfig>
 ) {
 
-    private val clientMap = mutableMapOf<Long, Web3jClient>()
+    private val clientMap = ConcurrentHashMap<Long, TokenBridgeClient>()
 
-    fun getClient(networkId: Long): Web3jClient {
+    fun getClient(networkId: Long): TokenBridgeClient {
 
         return clientMap.getOrPut(networkId) {
 
@@ -24,7 +25,7 @@ class Web3jClientsManager(
                 throw ProgrammerMistake(message)
             }
 
-            Web3jClient(networkId, evmConfig)
+            TokenBridgeClient(networkId, evmConfig)
         }
     }
 
