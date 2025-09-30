@@ -19,6 +19,7 @@ import net.postchain.client.config.PostchainClientConfig
 import net.postchain.client.core.PostchainQuery
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.client.impl.PostchainClientProviderImpl
+import net.postchain.client.impl.TryNextOnErrorRequestStrategyFactory
 import net.postchain.client.request.EndpointPool
 import net.postchain.common.BlockchainRid
 import net.postchain.eif.bad.config.AppConfig
@@ -246,7 +247,8 @@ class AnomalyDetectorsManager(
                     PostchainClientConfig(
                             bcRid,
                             EndpointPool.singleUrl(nodeUrl),
-                            listOf()
+                            listOf(),
+                            requestStrategy = TryNextOnErrorRequestStrategyFactory()
                     ))
 
     private fun createWeb3jRequestHandler(evmClientConfig: EvmClientConfig, rpcUrls: List<String>, networkId: Long): Web3jRequestHandler {
