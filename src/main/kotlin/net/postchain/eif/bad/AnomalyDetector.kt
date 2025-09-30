@@ -49,11 +49,13 @@ class AnomalyDetector(
     var lastBlockNumberProcessed = BigInteger.ZERO
         private set
 
-    private fun queryIsTokenBridgePaused(): Boolean {
-
-        return tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
+    private fun queryIsTokenBridgePaused(): Boolean = try {
+        tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
             it.paused()
         }.value
+    } catch (e: Exception) {
+        logWarn { "Failed to query paused state of token bridge: ${e.message}, reporting it as unpaused. Contract $tokenBridgeContractAddresses may not have pause logic." }
+        false
     }
 
     fun onLog(log: Log) {
@@ -170,10 +172,15 @@ class AnomalyDetector(
             anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED
 
         } else {
-            tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
-                it.pause()
+            try {
+                tokenBridgeClient.withTokenBridge(tokenBridgeContractAddresses) {
+                    it.pause()
+                }
+                anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
+            } catch (e: Exception) {
+                logError { "Failed to pause token bridge: ${e.message}" }
+                anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED
             }
-            anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
         }
     }
 
