@@ -106,6 +106,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-inc
         node1 = postchainServer("node1",
                 provider1KeyPair,
                 "/net/postchain/images/directory1/config-no-subnodes")
+                .withEnv("EVM_${networkId}_READ_OFFSET", "0")
                 .withEifEnv()
         node2 = postchainServer("node2",
                 provider2KeyPair,
@@ -113,6 +114,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-inc
                 .withEnv("POSTCHAIN_GENESIS_PUBKEY", node1.pubkey.hex())
                 .withEnv("POSTCHAIN_GENESIS_HOST", node1.nodeHost)
                 .withEnv("POSTCHAIN_GENESIS_PORT", node1.nodePort.toString())
+                .withEnv("EVM_${networkId}_READ_OFFSET", "0")
                 .withEifEnv()
         node3 = postchainServer("node3",
                 provider3KeyPair,
@@ -120,6 +122,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-inc
                 .withEnv("POSTCHAIN_GENESIS_PUBKEY", node1.pubkey.hex())
                 .withEnv("POSTCHAIN_GENESIS_HOST", node1.nodeHost)
                 .withEnv("POSTCHAIN_GENESIS_PORT", node1.nodePort.toString())
+                .withEnv("EVM_${networkId}_READ_OFFSET", "0")
                 .withEifEnv()
 
         startNodesAndChain0()
