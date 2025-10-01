@@ -168,14 +168,11 @@ class AnomalyDetectorsManager(
         if (evmConfig?.rpcUrls == null || evmConfig.rpcUrls.isEmpty()) {
             throw UserMistake("No rpc urls set for network $networkId")
         }
-        val newProcessor = EvmLogProcessor(
+        EvmLogProcessor(
                 evmConfig.logProcessorConfig,
                 eventMap.keys.toTypedArray(),
                 createWeb3jRequestHandler(appConfig.evmClientConfig, evmConfig.rpcUrls, networkId)
         )
-
-        logProcessors[networkId] = newProcessor
-        newProcessor
     }
 
     private fun stopDetectors(detectorsToStop: Map<BlockchainBridge, AnomalyDetector>) {

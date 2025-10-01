@@ -109,6 +109,11 @@ class EvmLogProcessor(
                 .map { (it as EthLog.LogObject).get() }
 
         processLogEventsAndUpdateOffsets(logs, to)
+
+        // If we just saw one new block we can probably sleep
+        if (to == from) {
+            delay(logProcessorConfig.delayWhenNoNewBlock)
+        }
     }
 
     private fun processLogEventsAndUpdateOffsets(
