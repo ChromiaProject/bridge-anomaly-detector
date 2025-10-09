@@ -20,7 +20,7 @@
     <properties>
         <revision>dev</revision>
         <postchain.version>3.42.4</postchain.version>
-        <postchain.chromia.version>3.32.1</postchain.chromia.version>
+        <postchain.chromia.version>3.34.2</postchain.chromia.version>
         <postchain.client.version>3.29.2</postchain.client.version>
         <eif.version>0.14.0</eif.version>
         <directory.chain.version>1.91.0</directory.chain.version>
@@ -212,14 +212,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>net.postchain</groupId>
-            <artifactId>deployment-test</artifactId>
-            <classifier>tests</classifier>
-            <type>test-jar</type>
-            <version>${postchain.chromia.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -332,35 +324,9 @@
                         </goals>
                         <configuration>
                             <classifier>sources</classifier>
-                            <includeArtifactIds>postchain-eif-contracts</includeArtifactIds>
+                            <includeArtifactIds>postchain-eif-contracts,postchain-eif-rell</includeArtifactIds>
                             <includeTypes>tar.gz</includeTypes>
                             <outputDirectory>${project.build.directory}</outputDirectory>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>unpack-test-resources</id>
-                        <phase>generate-test-resources</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>net.postchain</groupId>
-                                    <artifactId>deployment-test</artifactId>
-                                    <classifier>tests</classifier>
-                                    <type>test-jar</type>
-                                    <outputDirectory>${project.build.testOutputDirectory}</outputDirectory>
-                                    <includes>
-                                        <!-- System chain configurations-->
-                                        directory1deployment/**,
-                                        <!-- Node configurations-->
-                                        **/config-no-subnodes/**,
-                                        <!-- EVM configurations-->
-                                        **/evm/**
-                                    </includes>
-                                </artifactItem>
-                            </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
@@ -409,6 +375,32 @@
                                 <mainModule>economy_chain_test</mainModule>
                                 <mainModule>management_chain_mainnet</mainModule>
                             </mainModules>
+                        </configuration>
+                    </execution>
+
+                    <!-- EIF -->
+                    <execution>
+                        <id>eif-install-libs</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>rell-install</goal>
+                        </goals>
+                        <configuration>
+                            <source>${project.build.directory}/postchain-eif-rell/rell/src</source>
+                            <configPath>${project.build.directory}/postchain-eif-rell/rell/chromia.yml</configPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>eif-compile-chains</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>rell-compile</goal>
+                        </goals>
+                        <configuration>
+                            <rootFolder>${project.basedir}</rootFolder>
+                            <configFile>${project.basedir}/src/test/resources/eif.yml</configFile>
+                            <source>${project.build.directory}/postchain-eif-rell/rell/src</source>
+                            <target>${project.build.directory}/test-classes/directory1deployment</target>
                         </configuration>
                     </execution>
                 </executions>
