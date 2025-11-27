@@ -49,17 +49,10 @@ libs:
     tagOrBranch: 0.11.1
     rid: x"E47EBE9F69D5DD82E950E3A901EE565B6CA11483728C41FF424E1FE2451388BB"
     insecure: false
-  iccf:
-    registry: https://gitlab.com/chromaway/core/directory-chain
-    path: src/lib/iccf
-    tagOrBranch: 1.81.0
-    rid: x"9C359787B75927733034EA1CEE74EEC8829D2907E4FC94790B5E9ABE4396575D"
-  icmf:
-    registry: https://gitlab.com/chromaway/core/directory-chain
-    path: src/lib/icmf
-    tagOrBranch: 1.81.0
-    rid: x"1A4B3C3A1325DEF2C426C4F0F93F7444BB074373A24367DAA958C32F21B2EA1D"
-    insecure: false
+  com.chromia.iccf:
+    version: 1.90.1
+  com.chromia.icmf:
+    version: 1.102.2
 
 compile:
   rellVersion: 0.14.5
