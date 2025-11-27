@@ -39,7 +39,6 @@ include:
 
 stages:
   - build
-#  - code-coverage
   - deploy
   - dependency-check
   - release
@@ -87,7 +86,7 @@ build:
   script:
     - mvn
       $MAVEN_CLI_OPTS
-      --activate-profiles ci,coverage
+      --activate-profiles ci
       verify
 
 dependency-check:
@@ -132,7 +131,6 @@ variables:
   DOCKER_DRIVER: overlay2
   DOCKER_CLI_EXPERIMENTAL: enabled
   TEST_MOUNT_DIRECTORY: /builds/$CI_PROJECT_PATH/mnt
-  JACOCO_REPORT_DIR: target/site/jacoco
 
 # Cache downloaded dependencies and plugins between builds.
 # To keep cache across branches add 'key: "$CI_JOB_NAME"'
