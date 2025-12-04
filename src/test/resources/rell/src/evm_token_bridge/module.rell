@@ -6,9 +6,7 @@ namespace ft4 {
 }
 
 namespace eif {
-    import messaging: lib.eif.messaging;
     import lib.hbridge;
-    import lib.eif_event_connector;
 }
 
 operation init(token_address: byte_array, bridge_address: byte_array) {
@@ -22,12 +20,13 @@ operation init(token_address: byte_array, bridge_address: byte_array) {
     );
 
     // register bridge and ERC-20 asset contract on HBridge
-    eif.hbridge.register_bridge_and_erc20_asset(
+    eif.hbridge.erc20.register_bridge_and_erc20_asset(
         1337,
         token_address,
         asset,
         eif.hbridge.bridge_mode.foreign,
         false,
-        bridge_address
+        bridge_address,
+        -1
     );
 }

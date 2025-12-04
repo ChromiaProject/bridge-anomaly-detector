@@ -255,6 +255,7 @@ class AnomalyDetectorIncorrectWithdrawNotPausedIT : AnomalyDetectorTest("bad-inc
                             containerUnitIoWrite = 1,
                             containerUnitStorage = 17000,
                             systemContainerUnits = 1,
+                            maxNodes = Long.MAX_VALUE
                     )
                     .postTransactionUntilConfirmed("$APP_CLUSTER created")
 
