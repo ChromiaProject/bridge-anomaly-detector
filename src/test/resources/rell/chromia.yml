@@ -31,24 +31,10 @@ blockchains:
 libs:
   com.chromia.ft4:
     version: 1.1.0
-  eif:
-    registry: https://gitlab.com/chromaway/postchain-eif
-    path: postchain-eif-rell/rell/src/eif
-    tagOrBranch: 0.11.1
-    rid: x"AB40EDB0B534726B5F3AA288A5D31BE840B24BA670775E4F95C1B2512F5B8F22"
-    insecure: false
-  eif_event_connector:
-    registry: https://gitlab.com/chromaway/postchain-eif
-    path: postchain-eif-rell/rell/src/eif_event_connector
-    tagOrBranch: 0.11.1
-    rid: x"4A669C5F98AEE970FECD5B77116E737196C7D3C7C6217DFD7EAC2F9317FC9461"
-    insecure: false
-  hbridge:
-    registry: https://gitlab.com/chromaway/postchain-eif
-    path: postchain-eif-rell/rell/src/hbridge
-    tagOrBranch: 0.11.1
-    rid: x"E47EBE9F69D5DD82E950E3A901EE565B6CA11483728C41FF424E1FE2451388BB"
-    insecure: false
+  com.chromia.eif:
+    version: 1.0.0
+  com.chromia.hbridge:
+    version: 1.0.0
   com.chromia.iccf:
     version: 1.90.1
   com.chromia.icmf:

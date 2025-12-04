@@ -13,7 +13,7 @@ import net.postchain.chain0.common.queries.getNodeData
 import net.postchain.chain0.common.queries.listClustersOfNode
 import net.postchain.chain0.economy_chain.getBlockchainsWithBridgeAndAnomalyDetection
 import net.postchain.chain0.economy_chain_in_directory_chain.getEconomyChainRid
-import net.postchain.chain0.lib.hbridge.getBridgeContracts
+import net.postchain.chain0.lib.hbridge.erc20.getBridgeContracts
 import net.postchain.chain0.token_chain_in_directory_chain.getTokenChainRid
 import net.postchain.client.config.PostchainClientConfig
 import net.postchain.client.core.PostchainQuery
