@@ -19,8 +19,8 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.47.1</postchain.version>
-        <postchain.chromia.version>3.36.1</postchain.chromia.version>
+        <postchain.version>3.47.2</postchain.version>
+        <postchain.chromia.version>3.36.3</postchain.chromia.version>
         <postchain.client.version>3.38.0</postchain.client.version>
         <eif.version>0.27.1</eif.version>
         <directory.chain.version>1.102.4</directory.chain.version>
@@ -51,7 +51,7 @@
 
         <!-- test -->
         <junit.version>5.9.1</junit.version>
-        <testcontainers.version>1.19.7</testcontainers.version>
+        <testcontainers.version>2.0.2</testcontainers.version>
         <junit.pioneer.version>2.2.0</junit.pioneer.version>
     </properties>
     <dependencyManagement>
@@ -218,13 +218,13 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>jdbc</artifactId>
+            <artifactId>testcontainers-jdbc</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
