@@ -236,13 +236,13 @@ class AnomalyDetectorIncorrectWithdrawIT : AnomalyDetectorTest("bad-incorrect-wi
         testLogger.info("Adding tag")
         with(node1.ec) {
             transactionBuilder()
-                    .createTagOperation(node1.providerPubkey, APP_CLUSTER_TAG, 1, 1)
+                    .createTagOperation(node1.providerPubkey, APP_CLUSTER_TAG, 1, 1, 0)
                     .postTransactionUntilConfirmed("$APP_CLUSTER_TAG tag created")
 
             makeVoteOnLatestProposal(node2)
 
             assertThat(getTagByName(APP_CLUSTER_TAG))
-                    .isEqualTo(TagData(APP_CLUSTER_TAG, 1, 1))
+                    .isEqualTo(TagData(APP_CLUSTER_TAG, 1, 1, 0))
         }
 
         testLogger.info("Adding cluster")
