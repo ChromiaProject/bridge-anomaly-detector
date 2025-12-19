@@ -32,7 +32,7 @@ libs:
   com.chromia.ft4:
     version: 1.1.0
   com.chromia.eif:
-    version: 1.0.0
+    version: 1.0.1
   com.chromia.hbridge:
     version: 1.0.0
   com.chromia.iccf:
