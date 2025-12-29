@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.47.5</postchain.version>
+        <postchain.version>3.47.6</postchain.version>
         <postchain.chromia.version>3.36.7</postchain.chromia.version>
         <postchain.client.version>3.38.0</postchain.client.version>
         <eif.version>0.27.3</eif.version>
@@ -29,7 +29,6 @@
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.12.0</web3j.version>
         <web3j-plugin.version>4.12.1</web3j-plugin.version>
-        <log4j.version>2.23.1</log4j.version>
         <jackson.version>2.17.0</jackson.version>
 
         <main-class>net.postchain.eif.bad.MainKt</main-class>
@@ -162,17 +161,14 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
-            <version>${log4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <version>${log4j.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
-            <version>${log4j.version}</version>
         </dependency>
         <!-- To be able to use YAML log4j files -->
         <dependency>
