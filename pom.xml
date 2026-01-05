@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.47.6</postchain.version>
+        <postchain.version>3.47.7</postchain.version>
         <postchain.chromia.version>3.36.7</postchain.chromia.version>
         <postchain.client.version>3.38.0</postchain.client.version>
         <eif.version>0.27.3</eif.version>
