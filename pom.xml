@@ -24,7 +24,7 @@
         <postchain.client.version>3.38.0</postchain.client.version>
         <eif.version>0.27.3</eif.version>
         <directory.chain.version>1.107.3</directory.chain.version>
-        <rell.maven.plugin.version>0.16.4</rell.maven.plugin.version>
+        <rell.maven.plugin.version>0.16.5</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.12.0</web3j.version>
@@ -34,7 +34,7 @@
         <main-class>net.postchain.eif.bad.MainKt</main-class>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <kotlin.version>2.0.0</kotlin.version>
+        <kotlin.version>2.3.0</kotlin.version>
         <kotlin.compiler.jvmTarget>21</kotlin.compiler.jvmTarget>
         <kotlin.code.style>obsolete</kotlin.code.style> <!-- Kotlin obsolete IntelliJ IDEA codestyle -->
 
@@ -494,7 +494,7 @@
                     </abiSourceFiles>
                     <outputDirectory>
                         <abi>${project.basedir}/target/generated-resources</abi>
-                        <java>${project.basedir}/target/generated-sources</java>
+                        <java>${project.basedir}/target/generated-sources/contracts</java>
                     </outputDirectory>
                     <outputFormat>java,abi</outputFormat>
                 </configuration>
@@ -521,7 +521,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>target/generated-sources</source>
+                                <source>target/generated-sources/contracts</source>
                             </sources>
                         </configuration>
                     </execution>
