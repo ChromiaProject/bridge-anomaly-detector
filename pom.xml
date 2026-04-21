@@ -20,15 +20,14 @@
     <properties>
         <revision>dev</revision>
         <postchain.version>3.49.4</postchain.version>
-        <postchain.chromia.version>3.39.4</postchain.chromia.version>
-        <postchain.client.version>3.38.0</postchain.client.version>
+        <postchain.chromia.version>3.39.5</postchain.chromia.version>
+        <postchain.client.version>3.39.3</postchain.client.version>
         <eif.version>0.32.1</eif.version>
-        <directory.chain.version>1.109.9</directory.chain.version>
-        <rell.maven.plugin.version>1.0.0</rell.maven.plugin.version>
+        <directory.chain.version>1.110.2</directory.chain.version>
+        <rell.maven.plugin.version>1.2.1</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
-        <web3j.version>4.12.0</web3j.version>
-        <web3j-plugin.version>4.12.1</web3j-plugin.version>
+        <web3j.version>4.13.0</web3j.version>
 
         <main-class>net.postchain.eif.bad.MainKt</main-class>
         <maven.compiler.source>21</maven.compiler.source>
@@ -329,7 +328,12 @@
                 <groupId>net.postchain.rell</groupId>
                 <artifactId>rell-maven-plugin</artifactId>
                 <version>${rell.maven.plugin.version}</version>
-
+                <configuration>
+                    <postchainClientConfig>
+                        <failover.attempts>2</failover.attempts>
+                        <connect.timeout>10000</connect.timeout>
+                    </postchainClientConfig>
+                </configuration>
                 <executions>
                     <execution>
                         <id>compile-test-bridge</id>
@@ -471,7 +475,7 @@
             <plugin>
                 <groupId>org.web3j</groupId>
                 <artifactId>web3j-maven-plugin</artifactId>
-                <version>${web3j-plugin.version}</version>
+                <version>${web3j.version}</version>
                 <configuration>
                     <packageName>net.postchain.eif.contracts</packageName>
                     <nativeJavaType>false</nativeJavaType>
