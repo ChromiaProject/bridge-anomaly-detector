@@ -552,7 +552,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.15@sha256:374fd1e257e1ee1ba705fa55e0e9adeb46ea804121faeb9721d8f26ad8c9f21b</image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.16@sha256:2a71ca0a24d3bd55b952266fe2054fa44797246779031d65695e28ce40699039</image>
                         </from>
                         <to>
                             <image>${image.name}</image>
