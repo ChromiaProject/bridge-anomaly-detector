@@ -85,6 +85,7 @@ import org.web3j.abi.datatypes.generated.Bytes32
 import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.crypto.Credentials
 import org.web3j.protocol.core.DefaultBlockParameter
+import org.web3j.protocol.core.methods.request.Transaction
 import org.web3j.tx.Contract
 import org.web3j.tx.FastRawTransactionManager
 import org.web3j.tx.Transfer
@@ -522,8 +523,11 @@ class AnomalyDetectorIT : AnomalyDetectorTest("bad") {
         )
 
         val pauseFunctionData = TransactionSubmitter.encodeFunction("pause", listOf(), listOf())
-        val gasLimitPauseFunction = gasProvider.getGasLimit(pauseFunctionData)
-        val gasPricePauseFunction = gasProvider.getGasPrice(pauseFunctionData)
+        val transaction = Transaction.createFunctionCallTransaction(
+                nodeTransactionManager.fromAddress, null, null, null, bridge.contractAddress, pauseFunctionData
+        )
+        val gasLimitPauseFunction = gasProvider.getGasLimit(transaction)
+        val gasPricePauseFunction = gasProvider.gasPrice
 
         nodeTransactionManager.sendTransaction(
                 gasPricePauseFunction,
