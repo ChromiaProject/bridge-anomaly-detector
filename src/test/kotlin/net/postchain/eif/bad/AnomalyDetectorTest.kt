@@ -22,6 +22,7 @@ import org.apache.hc.client5.http.config.RequestConfig
 import org.apache.hc.client5.http.cookie.StandardCookieSpec
 import org.apache.hc.client5.http.impl.classic.HttpClients
 import org.apache.hc.core5.util.Timeout
+import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.http4k.client.ApacheClient
 import org.http4k.core.HttpHandler
 import org.http4k.core.Method
@@ -32,11 +33,16 @@ import org.http4k.filter.ClientFilters
 import org.http4k.filter.GzipCompressionMode
 import org.web3j.abi.datatypes.generated.Uint256
 import java.math.BigInteger
+import java.security.Security
 import java.util.concurrent.TimeUnit
 
 abstract class AnomalyDetectorTest(logDir: String) : EvmTestBase(logDir) {
 
     companion object {
+        init {
+            Security.addProvider(BouncyCastleProvider())
+        }
+
         val BRIDGE_CHAIN_REFRESH_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)
 
         // We re-use the eif event receiver that we build in postchain chromia
