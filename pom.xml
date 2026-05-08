@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.4</version>
+        <version>0.2.6</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -19,12 +19,12 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.6</postchain.version>
-        <postchain.chromia.version>3.39.5</postchain.chromia.version>
+        <postchain.version>3.49.11</postchain.version>
+        <postchain.chromia.version>3.39.7</postchain.chromia.version>
         <postchain.client.version>3.39.3</postchain.client.version>
-        <eif.version>0.32.1</eif.version>
+        <eif.version>0.32.3</eif.version>
         <directory.chain.version>1.110.2</directory.chain.version>
-        <rell.maven.plugin.version>1.2.1</rell.maven.plugin.version>
+        <rell.maven.plugin.version>1.2.3</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
         <web3j.version>4.13.0</web3j.version>
