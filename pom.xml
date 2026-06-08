@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.6</version>
+        <version>0.2.8</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -19,11 +19,11 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.11</postchain.version>
+        <postchain.version>3.49.13</postchain.version>
         <postchain.chromia.version>3.39.7</postchain.chromia.version>
         <postchain.client.version>3.39.3</postchain.client.version>
-        <eif.version>0.32.3</eif.version>
-        <directory.chain.version>1.110.2</directory.chain.version>
+        <eif.version>0.32.4</eif.version>
+        <directory.chain.version>1.110.5</directory.chain.version>
         <rell.maven.plugin.version>1.2.3</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
@@ -104,7 +104,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.78</version>
+            <version>1.84</version>
         </dependency>
 
         <!-- EIF EVM contracts -->
@@ -195,6 +195,12 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>logging-interceptor</artifactId>
             <version>4.9.3</version>
+        </dependency>
+        <!-- web3j pulls an old netty-transport-classes-epoll (not managed by postchain); pin to the patched version -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-classes-epoll</artifactId>
+            <version>4.1.134.Final</version>
         </dependency>
 
         <!-- Test -->
