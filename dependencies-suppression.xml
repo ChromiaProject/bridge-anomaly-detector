@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
-
+    <suppress>
+        <notes><![CDATA[
+        False positive. CVE-2026-40984 is a DoS in Micrometer's HTTP server instrumentations.
+        Per the Spring advisory (https://spring.io/security/cve-2026-40984/) the affected branches
+        are 1.9.0-1.9.17, 1.13.0-1.13.18, 1.14.0-1.14.15, 1.15.0-1.15.11 and 1.16.0-1.16.5 — the
+        1.10.x-1.12.x line is NOT affected. micrometer-core 1.10.1 is pulled transitively by
+        http4k-ops-micrometer; NVD's CPE range over-matches and flags it anyway. This suppression is
+        scoped to 1.10.x-1.12.x only, so a future bump into a genuinely affected branch is still reported.
+        ]]></notes>
+        <packageUrl regex="true">^pkg:maven/io\.micrometer/micrometer-core@1\.1[0-2]\..*$</packageUrl>
+        <cve>CVE-2026-40984</cve>
+    </suppress>
 </suppressions>
