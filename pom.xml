@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.8</version>
+        <version>0.2.9</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -150,10 +150,6 @@
         <dependency>
             <groupId>org.http4k</groupId>
             <artifactId>http4k-client-apache</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.http4k</groupId>
-            <artifactId>http4k-ops-micrometer</artifactId>
         </dependency>
         <!-- logging -->
         <dependency>
