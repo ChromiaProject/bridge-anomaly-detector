@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.8</version>
+        <version>0.2.9</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.13</postchain.version>
+        <postchain.version>3.49.14</postchain.version>
         <postchain.chromia.version>3.39.7</postchain.chromia.version>
         <postchain.client.version>3.39.3</postchain.client.version>
         <eif.version>0.32.4</eif.version>
@@ -151,10 +151,6 @@
             <groupId>org.http4k</groupId>
             <artifactId>http4k-client-apache</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.http4k</groupId>
-            <artifactId>http4k-ops-micrometer</artifactId>
-        </dependency>
         <!-- logging -->
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
@@ -196,13 +192,6 @@
             <artifactId>logging-interceptor</artifactId>
             <version>4.9.3</version>
         </dependency>
-        <!-- web3j pulls an old netty-transport-classes-epoll (not managed by postchain); pin to the patched version -->
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-transport-classes-epoll</artifactId>
-            <version>4.1.134.Final</version>
-        </dependency>
-
         <!-- Test -->
         <dependency>
             <groupId>net.postchain</groupId>
