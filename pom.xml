@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.9</version>
+        <version>0.2.10</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.14</postchain.version>
+        <postchain.version>3.49.15</postchain.version>
         <postchain.chromia.version>3.39.7</postchain.chromia.version>
         <postchain.client.version>3.39.3</postchain.client.version>
         <eif.version>0.32.4</eif.version>
