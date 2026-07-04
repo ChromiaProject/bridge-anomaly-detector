@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.15</postchain.version>
+        <postchain.version>3.49.17</postchain.version>
         <postchain.chromia.version>3.39.10</postchain.chromia.version>
         <postchain.client.version>3.39.4</postchain.client.version>
         <eif.version>0.32.5</eif.version>
@@ -557,7 +557,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.18@sha256:3f07949e27118677476bf20ef9644bd48f357daefa4ea4e53c8a6ac4a9d9adb8</image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.19@sha256:badf799acda31620ce99ea80c12e398ca9392691167c6f821d4c4fd744297d0e</image>
                         </from>
                         <to>
                             <image>${image.name}</image>
