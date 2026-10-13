@@ -8,9 +8,12 @@ include:
       - templates/maven-dependency-scanning.yml
       - templates/container-dependency-scanning.yml
 
-.setup:
+default:
   tags:
-    - saas-linux-large-amd64
+    - linux-large-amd64
+    - chromaway
+
+.setup:
   services:
     - name: docker:29.1.1-dind
       alias: docker
