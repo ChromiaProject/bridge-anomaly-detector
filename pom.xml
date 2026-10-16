@@ -19,11 +19,11 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.15</postchain.version>
-        <postchain.chromia.version>3.39.10</postchain.chromia.version>
-        <postchain.client.version>3.39.4</postchain.client.version>
-        <eif.version>0.32.5</eif.version>
-        <directory.chain.version>1.110.5</directory.chain.version>
+        <postchain.version>3.49.22</postchain.version>
+        <postchain.chromia.version>3.40.1</postchain.chromia.version>
+        <postchain.client.version>3.39.7</postchain.client.version>
+        <eif.version>0.32.7</eif.version>
+        <directory.chain.version>1.110.11</directory.chain.version>
         <rell.maven.plugin.version>1.2.3</rell.maven.plugin.version>
         <directory.source>${project.build.directory}/directory-chain/src</directory.source>
         <directory.config>${project.basedir}/src/test/resources/net/postchain/images/directory1/directory1.yml</directory.config>
@@ -104,7 +104,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.84</version>
+            <version>1.86</version>
         </dependency>
 
         <!-- EIF EVM contracts -->
@@ -557,7 +557,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.18@sha256:3f07949e27118677476bf20ef9644bd48f357daefa4ea4e53c8a6ac4a9d9adb8</image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.21@sha256:4dc74e9017704f290e1374ce25610eb4f2200b430d3f1a613d3df3f11cee8ebc</image>
                         </from>
                         <to>
                             <image>${image.name}</image>
