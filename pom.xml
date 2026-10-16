@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.chromia</groupId>
         <artifactId>chromia-parent</artifactId>
-        <version>0.2.10</version>
+        <version>0.3.0</version>
     </parent>
 
     <groupId>net.postchain.eif</groupId>
@@ -575,6 +575,16 @@
                             <mainClass>${main-class}</mainClass>
                             <creationTime>${git.commit.time}</creationTime>
                             <filesModificationTime>${git.commit.time}</filesModificationTime>
+                            <!-- Provenance: record the source state this image was built from.
+                                 All values are commit-derived, so rebuilding the same commit
+                                 produces an identical config and therefore an identical digest. -->
+                            <labels>
+                                <org.opencontainers.image.revision>${git.commit.id.full}</org.opencontainers.image.revision>
+                                <org.opencontainers.image.created>${git.commit.time}</org.opencontainers.image.created>
+                                <org.opencontainers.image.version>${project.version}</org.opencontainers.image.version>
+                                <org.opencontainers.image.source>https://gitlab.com/chromaway/core/bridge-anomaly-detector</org.opencontainers.image.source>
+                                <com.chromia.git.dirty>${git.dirty}</com.chromia.git.dirty>
+                            </labels>
                         </container>
                         <containerizingMode>packaged</containerizingMode>
                     </configuration>
