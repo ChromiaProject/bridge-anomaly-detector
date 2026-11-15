@@ -107,11 +107,9 @@
             <version>${postchain.client.version}</version>
         </dependency>
 
-        <!-- Postchain version override -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.86</version>
         </dependency>
 
         <!-- EIF EVM contracts -->
