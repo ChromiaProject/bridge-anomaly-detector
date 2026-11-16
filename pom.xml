@@ -19,7 +19,7 @@
 
     <properties>
         <revision>dev</revision>
-        <postchain.version>3.49.23</postchain.version>
+        <postchain.version>3.49.24</postchain.version>
         <postchain.chromia.version>3.40.3</postchain.chromia.version>
         <postchain.client.version>3.39.7</postchain.client.version>
         <eif.version>0.33.0</eif.version>
@@ -107,11 +107,9 @@
             <version>${postchain.client.version}</version>
         </dependency>
 
-        <!-- Postchain version override -->
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.86</version>
         </dependency>
 
         <!-- EIF EVM contracts -->
