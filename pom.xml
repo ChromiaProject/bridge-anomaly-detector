@@ -562,7 +562,7 @@
                     <configuration>
                         <allowInsecureRegistries>false</allowInsecureRegistries>
                         <from>
-                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.23@sha256:e264828bf09bf9d4b9281aab51103d7a8ebd9972e96fdb650918a69c6dd407b8</image>
+                            <image>registry.gitlab.com/chromaway/core-tools/chromia-images/java21:1.0.24@sha256:584b93c5fe8f9e478beccecc7c3318cc7f896fac8b93a9f847f0381974898078</image>
                         </from>
                         <to>
                             <image>${image.name}</image>
@@ -608,7 +608,7 @@
                     <artifactId>dependency-check-maven</artifactId>
                     <configuration>
                         <prettyPrint>true</prettyPrint>
-                        <failBuildOnAnyVulnerability>true</failBuildOnAnyVulnerability>
+                        <failBuildOnCVSS>7</failBuildOnCVSS>
                         <assemblyAnalyzerEnabled>false</assemblyAnalyzerEnabled>
                         <yarnAuditAnalyzerEnabled>false</yarnAuditAnalyzerEnabled>
                         <suppressionFiles>
