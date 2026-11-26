@@ -32,8 +32,8 @@ class AnomaliesCache(
     private val anomalyTasks = CopyOnWriteArrayList<LogVerificationTask>()
 
     fun schedule(logVerification: LogVerification, status: LogVerificationStatus, delay: Long, action: (LogVerification) -> Unit) {
-        addAnomaly(logVerification)
         logVerification.status = status
+        addAnomaly(logVerification)
 
         val entry = LogVerificationTask(logVerification, System.currentTimeMillis(), delay)
         anomalyTasks.add(entry)
