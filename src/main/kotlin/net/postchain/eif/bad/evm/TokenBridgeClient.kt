@@ -2,21 +2,28 @@ package net.postchain.eif.bad.evm
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
+import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.config.EvmConfig
 import net.postchain.eif.bad.evm.Web3jServiceFactory.buildServices
 import net.postchain.eif.contracts.TokenBridge
 import org.web3j.protocol.Web3j
 import org.web3j.protocol.core.RemoteFunctionCall
 import org.web3j.tx.RawTransactionManager
-import org.web3j.tx.gas.DefaultGasProvider
+import java.util.concurrent.ConcurrentHashMap
 
 class TokenBridgeClient(
         private val networkId: Long,
-        private val evmConfig: EvmConfig
+        private val evmConfig: EvmConfig,
+        evmClientConfig: EvmClientConfig = EvmClientConfig(),
 ) {
 
-    private val web3jClients: List<Web3j> = buildServices(evmConfig.rpcUrls, 10_000, 10_000, 10_000)
-    private val tokenBridgeMap = mutableMapOf<String, List<TokenBridge>>()
+    private val web3jClients: List<Web3j> = buildServices(
+            evmConfig.rpcUrls,
+            evmClientConfig.connectTimeoutSeconds,
+            evmClientConfig.readTimeoutSeconds,
+            evmClientConfig.writeTimeoutSeconds,
+    )
+    private val tokenBridgeMap = ConcurrentHashMap<String, List<TokenBridge>>()
 
     fun <T> withTokenBridge(tokenBridgeContractAddresses: String, call: (TokenBridge) -> RemoteFunctionCall<T>): T {
 
@@ -39,10 +46,10 @@ class TokenBridgeClient(
     private fun getTokenBridge(tokenBridgeContractAddresses: String): List<TokenBridge> {
         return tokenBridgeMap.getOrPut(tokenBridgeContractAddresses) {
             web3jClients.map {
-                val transactionManager = RawTransactionManager(it, evmConfig.credentials)
-                TokenBridge.load(tokenBridgeContractAddresses, it, transactionManager, DefaultGasProvider())
+                val transactionManager = RawTransactionManager(it, evmConfig.credentials, networkId)
+                val gasProvider = DynamicEIP1559GasProvider(it, networkId)
+                TokenBridge.load(tokenBridgeContractAddresses, it, transactionManager, gasProvider)
             }
         }
     }
 }
-

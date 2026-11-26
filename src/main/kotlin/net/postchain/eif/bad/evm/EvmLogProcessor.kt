@@ -116,7 +116,7 @@ class EvmLogProcessor(
         }
     }
 
-    private fun processLogEventsAndUpdateOffsets(
+    internal fun processLogEventsAndUpdateOffsets(
             logs: List<Log>,
             newLastReadLogBlockHeight: Long
     ) {
@@ -124,7 +124,8 @@ class EvmLogProcessor(
             try {
                 contractSubscriptions[log.address.lowercase()]?.invoke(log)
             } catch (e: Exception) {
-                logger.error(e) { "Failed ot process log event: ${e.message}" }
+                logger.error(e) { "Failed to process log event at block ${log.blockNumber}: ${e.message}" }
+                throw e
             }
         }
         lastReadBlockNumber = newLastReadLogBlockHeight

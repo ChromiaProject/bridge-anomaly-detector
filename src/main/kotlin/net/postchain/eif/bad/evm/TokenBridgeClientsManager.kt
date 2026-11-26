@@ -2,11 +2,13 @@ package net.postchain.eif.bad.evm
 
 import net.postchain.client.impl.PostchainClientImpl.Companion.logger
 import net.postchain.common.exception.ProgrammerMistake
+import net.postchain.eif.bad.config.EvmClientConfig
 import net.postchain.eif.bad.config.EvmConfig
 import java.util.concurrent.ConcurrentHashMap
 
 class TokenBridgeClientsManager(
-        private val evmConfigs: Map<Long, EvmConfig>
+        private val evmConfigs: Map<Long, EvmConfig>,
+        private val evmClientConfig: EvmClientConfig = EvmClientConfig(),
 ) {
 
     private val clientMap = ConcurrentHashMap<Long, TokenBridgeClient>()
@@ -25,7 +27,7 @@ class TokenBridgeClientsManager(
                 throw ProgrammerMistake(message)
             }
 
-            TokenBridgeClient(networkId, evmConfig)
+            TokenBridgeClient(networkId, evmConfig, evmClientConfig)
         }
     }
 

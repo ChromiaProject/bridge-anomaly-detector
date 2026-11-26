@@ -112,7 +112,21 @@ class AnomalyDetector(
 
     private fun verifyHeight(logVerification: LogVerification, retry: Boolean) {
 
-        val blockAtHeight = postchainClient.blockAtHeight(logVerification.height)
+        val blockAtHeight = try {
+            postchainClient.blockAtHeight(logVerification.height)
+        } catch (e: Exception) {
+            if (retry) {
+                // Fail-closed: propagate to EvmLogProcessor so lastReadBlockNumber does NOT advance
+                logError { "Failed to query blockAtHeight(${logVerification.height}): ${e.message}" }
+                throw e
+            } else {
+                // Scheduled retry failed to reach node: fail-closed by pausing the bridge
+                logError { "Scheduled retry failed to query blockAtHeight(${logVerification.height}): ${e.message}. Pausing bridge." }
+                pauseTokenBridge()
+                anomaliesCache.addAnomaly(logVerification)
+                return
+            }
+        }
 
         if (blockAtHeight == null) {
 
@@ -159,13 +173,14 @@ class AnomalyDetector(
         }
     }
 
-    private fun pauseTokenBridge() {
+    internal fun pauseTokenBridge(attempt: Int = 1, retryBackoffMs: Long = 10_000L, maxAttempts: Int = 5) {
 
-        logError { "Pausing token bridge..." }
+        logError { "Pausing token bridge (attempt $attempt/$maxAttempts)..." }
 
-        if (isTokenBridgePaused()) {
+        if (queryIsTokenBridgePaused()) {
 
-            logInfo { "Bridge already paused" }
+            logInfo { "Bridge already paused on-chain" }
+            anomalyDetectorStatus = AnomalyDetectorStatus.PAUSED
         } else if (!anomalyConfig.pauseOnAnomaly) {
 
             logWarn { "Bridge contract is NOT paused since it is disabled" }
@@ -178,8 +193,15 @@ class AnomalyDetector(
                 }
                 anomalyDetectorStatus = AnomalyDetectorStatus.PAUSE_TRANSACTION_SENT
             } catch (e: Exception) {
-                logError { "Failed to pause token bridge: ${e.message}" }
+                logError { "Failed to pause token bridge (attempt $attempt/$maxAttempts): ${e.message}" }
                 anomalyDetectorStatus = AnomalyDetectorStatus.ANOMALY_FOUND_NOT_PAUSED
+                if (attempt < maxAttempts) {
+                    val nextDelayMs = (retryBackoffMs * (1L shl (attempt - 1))).coerceAtMost(300_000L)
+                    logWarn { "Scheduling retry ${attempt + 1}/$maxAttempts to pause token bridge in ${nextDelayMs}ms" }
+                    anomaliesCache.scheduleAction(nextDelayMs) {
+                        pauseTokenBridge(attempt + 1, retryBackoffMs, maxAttempts)
+                    }
+                }
             }
         }
     }

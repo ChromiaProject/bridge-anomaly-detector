@@ -27,7 +27,7 @@ fun main(args: Array<String>) {
         logger.warn { "!!! Bridge will never be paused since pauseOnAnomaly is set to false !!!" }
     }
 
-    val tokenBridgeClientsManager = TokenBridgeClientsManager(appConfig.evmConfig)
+    val tokenBridgeClientsManager = TokenBridgeClientsManager(appConfig.evmConfig, appConfig.evmClientConfig)
     val anomalyDetectorsManager = AnomalyDetectorsManager(appConfig, tokenBridgeClientsManager)
     anomalyDetectorsManager.start()
 
